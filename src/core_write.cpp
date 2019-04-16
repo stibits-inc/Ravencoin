@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2016 The Bitcoin Core developers
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -188,7 +188,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                             assetInfo.pushKV("units", asset.units);
                             assetInfo.pushKV("reissuable", asset.nReissuable > 0 ? true : false);
                             if (asset.nHasIPFS > 0) {
-                                assetInfo.pushKV("ipfs_hash", EncodeIPFS(asset.strIPFSHash));
+                                assetInfo.pushKV("ipfs_hash", EncodeAssetData(asset.strIPFSHash));
                             }
                         }
                     }
@@ -203,7 +203,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                         }
                         assetInfo.pushKV("reissuable", asset.nReissuable > 0 ? true : false);
                         if (!asset.strIPFSHash.empty()) {
-                            assetInfo.pushKV("ipfs_hash", EncodeIPFS(asset.strIPFSHash));
+                            assetInfo.pushKV("ipfs_hash", EncodeAssetData(asset.strIPFSHash));
                         }
                     }
                     break;

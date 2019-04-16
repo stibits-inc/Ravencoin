@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -123,7 +123,6 @@ BOOST_FIXTURE_TEST_SUITE(asset_tests, BasicTestingSetup)
         BOOST_CHECK(!IsAssetNameValid("ABC~X._X", type));
         BOOST_CHECK(!IsAssetNameValid("ABC~X_.X", type));
         BOOST_CHECK(!IsAssetNameValid("ABC~X..X", type));
-        BOOST_CHECK(!IsAssetNameValid("ABC~nolower", type));
 
         // owner
         BOOST_CHECK(IsAssetNameAnOwner("ABC!"));

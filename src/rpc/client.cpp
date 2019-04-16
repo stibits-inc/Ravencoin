@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2016 The Bitcoin Core developers
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -36,6 +36,12 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "issueunique", 1, "asset_tags"},
     { "issueunique", 2, "ipfs_hashes"},
     { "transfer", 1, "qty"},
+    { "transfer", 4, "expire_time"},
+    { "transferfromaddress", 2, "qty"},
+    { "transferfromaddress", 5, "expire_time"},
+    { "transferfromaddresses", 1, "from_addresses"},
+    { "transferfromaddresses", 2, "qty"},
+    { "transferfromaddresses", 5, "expire_time"},
     { "reissue", 1, "qty"},
     { "reissue", 4, "reissuable"},
     { "reissue", 5, "new_unit"},
@@ -179,6 +185,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listassetbalancesbyaddress", 1, "totalonly"},
     { "listassetbalancesbyaddress", 2, "count"},
     { "listassetbalancesbyaddress", 3, "start"},
+    { "sendmessage", 2, "expire_time"},
 };
 
 class CRPCConvertTable

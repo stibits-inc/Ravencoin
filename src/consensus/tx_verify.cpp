@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2017 The Bitcoin Core developers
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,6 +14,8 @@
 #include "script/interpreter.h"
 #include "validation.h"
 #include <cmath>
+#include <wallet/wallet.h>
+#include <base58.h>
 
 // TODO remove the following dependencies
 #include "chain.h"
@@ -203,7 +205,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, CAssetsCa
         if (AreAssetsDeployed() && isAsset) {
             if (assetCache) {
                 // Get the transfer transaction data from the scriptPubKey
-                if ( nType == TX_TRANSFER_ASSET) {
+                if (nType == TX_TRANSFER_ASSET) {
                     CAssetTransfer transfer;
                     std::string address;
                     if (!TransferAssetFromScript(txout.scriptPubKey, transfer, address))
@@ -213,6 +215,13 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, CAssetsCa
                     AssetType assetType;
                     if (!IsAssetNameValid(transfer.strName, assetType)) {
                         return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-asset-name-invalid");
+                    }
+
+                    // Check transfer asset amount > 0
+                    if (AreMessagingDeployed()) {
+                        if (transfer.nAmount <= 0) {
+                            return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-amount-must-be-greater-than-zero");
+                        }
                     }
 
                     // If the transfer is an ownership asset. Check to make sure that it is OWNER_ASSET_AMOUNT
@@ -227,6 +236,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, CAssetsCa
                             return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-unique-amount-was-not-1");
                     }
 
+                    // If the transfer is a message channel asset. Check to make sure that it is UNIQUE_ASSET_AMOUNT
+                    if (assetType == AssetType::MSGCHANNEL) {
+                        if (!AreMessagingDeployed())
+                            return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-msgchannel-before-messaging-is-active");
+
+                        if (transfer.nAmount != UNIQUE_ASSET_AMOUNT)
+                            return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-msgchannel-amount-was-not-1");
+                    }
                 }
             }
         }
@@ -277,6 +294,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, CAssetsCa
                     return state.DoS(100, error("%s: %s", __func__, strError), REJECT_INVALID, "bad-txns-issue-" + strError);
 
             } else if (tx.IsReissueAsset()) {
+
                 /** Verify the reissue assets data */
                 std::string strError;
                 if (!tx.VerifyReissueAsset(strError))
@@ -312,6 +330,24 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, CAssetsCa
                             return state.DoS(100, false, REJECT_INVALID, "bad-txns-" + strError);
                     }
                 }
+            } else if (tx.IsNewMsgChannelAsset()) {
+
+                if (!AreMessagingDeployed())
+                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-issue-msgchannel-before-messaging-is-active");
+
+                /** Verify the msg channel assets data */
+                std::string strError = "";
+                if(!tx.VerifyNewMsgChannelAsset(strError))
+                    return state.DoS(100, false, REJECT_INVALID, strError);
+
+                CNewAsset asset;
+                std::string strAddress;
+                if (!MsgChannelAssetFromTransaction(tx, asset, strAddress))
+                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-issue-msgchannel-from-transaction");
+
+                if (!asset.IsValid(strError, *assetCache, fMemPoolCheck, fCheckAssetDuplicate, fForceDuplicateCheck))
+                    return state.DoS(100, error("%s: %s", __func__, strError), REJECT_INVALID, "bad-txns-issue-msgchannel" + strError);
+
             } else {
                 // Fail if transaction contains any non-transfer asset scripts and hasn't conformed to one of the
                 // above transaction types.  Also fail if it contains OP_RVN_ASSET opcode but wasn't a valid script.
@@ -381,7 +417,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 }
 
 //! Check to make sure that the inputs and outputs CAmount match exactly.
-bool Consensus::CheckTxAssets(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, std::vector<std::pair<std::string, uint256> >& vPairReissueAssets, const bool fRunningUnitTests)
+bool Consensus::CheckTxAssets(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, std::vector<std::pair<std::string, uint256> >& vPairReissueAssets, const bool fRunningUnitTests, std::set<CMessage>* setMessages, int64_t nBlocktime)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -392,35 +428,45 @@ bool Consensus::CheckTxAssets(const CTransaction& tx, CValidationState& state, c
     // Create map that stores the amount of an asset transaction input. Used to verify no assets are burned
     std::map<std::string, CAmount> totalInputs;
 
+    std::map<std::string, std::string> mapAddresses;
+
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
         assert(!coin.IsSpent());
 
         if (coin.IsAsset()) {
-            std::string strName;
-            CAmount nAmount;
-
-            if (!GetAssetInfoFromCoin(coin, strName, nAmount))
+            CAssetOutputEntry data;
+            if (!GetAssetData(coin.out.scriptPubKey, data))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-failed-to-get-asset-from-script");
 
             // Add to the total value of assets in the inputs
-            if (totalInputs.count(strName))
-                totalInputs.at(strName) += nAmount;
+            if (totalInputs.count(data.assetName))
+                totalInputs.at(data.assetName) += data.nAmount;
             else
-                totalInputs.insert(make_pair(strName, nAmount));
+                totalInputs.insert(make_pair(data.assetName, data.nAmount));
+
+            if (AreMessagingDeployed()) {
+                mapAddresses.insert(make_pair(data.assetName,EncodeDestination(data.destination)));
+            }
         }
     }
 
     // Create map that stores the amount of an asset transaction output. Used to verify no assets are burned
     std::map<std::string, CAmount> totalOutputs;
-
+    int index = 0;
+    int64_t currentTime = GetTime();
     for (const auto& txout : tx.vout) {
         if (txout.scriptPubKey.IsTransferAsset()) {
             CAssetTransfer transfer;
             std::string address;
             if (!TransferAssetFromScript(txout.scriptPubKey, transfer, address))
                 return state.DoS(100, false, REJECT_INVALID, "bad-tx-asset-transfer-bad-deserialize");
+
+            std::string strError = "";
+            if (!transfer.IsValid(strError)) {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-not-valid " + strError);
+            }
 
             // Add to the total value of assets in the outputs
             if (totalOutputs.count(transfer.strName))
@@ -446,6 +492,26 @@ bool Consensus::CheckTxAssets(const CTransaction& tx, CValidationState& state, c
                         return state.DoS(100, false, REJECT_INVALID, "bad-txns-transfer-asset-amount-not-match-units");
                 }
             }
+
+            /** Get messages from the transaction, only used when getting called from ConnectBlock **/
+            // Get the messages from the Tx unless they are expired
+            if (AreMessagingDeployed() && fMessaging && setMessages) {
+                if (IsAssetNameAnOwner(transfer.strName) || IsAssetNameAnMsgChannel(transfer.strName)) {
+                    if (!transfer.message.empty()) {
+                        if (transfer.nExpireTime == 0 || transfer.nExpireTime > currentTime) {
+                            if (mapAddresses.count(transfer.strName)) {
+                                if (mapAddresses.at(transfer.strName) == address) {
+                                    COutPoint out(tx.GetHash(), index);
+                                    CMessage message(out, transfer.strName, transfer.message,
+                                                     transfer.nExpireTime, nBlocktime);
+                                    setMessages->insert(message);
+                                    LogPrintf("Got message: %s\n", message.ToString()); // TODO remove after testing
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } else if (txout.scriptPubKey.IsReissueAsset()) {
             CReissueAsset reissue;
             std::string address;
@@ -468,6 +534,7 @@ bool Consensus::CheckTxAssets(const CTransaction& tx, CValidationState& state, c
                 vPairReissueAssets.emplace_back(std::make_pair(reissue.strName, tx.GetHash()));
             }
         }
+        index++;
     }
 
     for (const auto& outValue : totalOutputs) {

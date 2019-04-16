@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -246,6 +246,7 @@ CAmount GetIssueAssetBurnAmount();
 CAmount GetReissueAssetBurnAmount();
 CAmount GetIssueSubAssetBurnAmount();
 CAmount GetIssueUniqueAssetBurnAmount();
+CAmount GetIssueMsgChannelAssetBurnAmount();
 CAmount GetBurnAmount(const AssetType type);
 CAmount GetBurnAmount(const int nType);
 std::string GetBurnAddress(const AssetType type);
@@ -258,6 +259,7 @@ bool IsAssetNameValid(const std::string& name, AssetType& assetType);
 bool IsAssetNameValid(const std::string& name, AssetType& assetType, std::string& error);
 bool IsUniqueTagValid(const std::string& tag);
 bool IsAssetNameAnOwner(const std::string& name);
+bool IsAssetNameAnMsgChannel(const std::string& name);
 std::string GetParentName(const std::string& name); // Gets the parent name of a subasset TEST/TESTSUB would return TEST
 std::string GetUniqueAssetName(const std::string& parent, const std::string& tag);
 
@@ -269,11 +271,13 @@ bool AssetFromTransaction(const CTransaction& tx, CNewAsset& asset, std::string&
 bool OwnerFromTransaction(const CTransaction& tx, std::string& ownerName, std::string& strAddress);
 bool ReissueAssetFromTransaction(const CTransaction& tx, CReissueAsset& reissue, std::string& strAddress);
 bool UniqueAssetFromTransaction(const CTransaction& tx, CNewAsset& asset, std::string& strAddress);
+bool MsgChannelAssetFromTransaction(const CTransaction& tx, CNewAsset& asset, std::string& strAddress);
 
 bool TransferAssetFromScript(const CScript& scriptPubKey, CAssetTransfer& assetTransfer, std::string& strAddress);
 bool AssetFromScript(const CScript& scriptPubKey, CNewAsset& asset, std::string& strAddress);
 bool OwnerAssetFromScript(const CScript& scriptPubKey, std::string& assetName, std::string& strAddress);
 bool ReissueAssetFromScript(const CScript& scriptPubKey, CReissueAsset& reissue, std::string& strAddress);
+bool MsgChannelAssetFromScript(const CScript& scriptPubKey, CNewAsset& asset, std::string& strAddress);
 
 bool CheckIssueBurnTx(const CTxOut& txOut, const AssetType& type, const int numberIssued);
 bool CheckIssueBurnTx(const CTxOut& txOut, const AssetType& type);
@@ -284,20 +288,27 @@ bool CheckOwnerDataTx(const CTxOut& txOut);
 bool CheckReissueDataTx(const CTxOut& txOut);
 bool CheckTransferOwnerTx(const CTxOut& txOut);
 
-bool CheckEncodedIPFS(const std::string& hash, std::string& strError);
+bool CheckEncoded(const std::string& hash, std::string& strError);
 
 bool CheckAmountWithUnits(const CAmount& nAmount, const int8_t nUnits);
 
-bool IsScriptNewAsset(const CScript& scriptPubKey, int& nStartingIndex);
-bool IsScriptNewUniqueAsset(const CScript& scriptPubKey, int& nStartingIndex);
-bool IsScriptOwnerAsset(const CScript& scriptPubKey, int& nStartingIndex);
-bool IsScriptReissueAsset(const CScript& scriptPubKey, int& nStartingIndex);
-bool IsScriptTransferAsset(const CScript& scriptPubKey, int& nStartingIndex);
 bool IsScriptNewAsset(const CScript& scriptPubKey);
+bool IsScriptNewAsset(const CScript& scriptPubKey, int& nStartingIndex);
+
 bool IsScriptNewUniqueAsset(const CScript& scriptPubKey);
+bool IsScriptNewUniqueAsset(const CScript &scriptPubKey, int &nStartingIndex);
+
 bool IsScriptOwnerAsset(const CScript& scriptPubKey);
+bool IsScriptOwnerAsset(const CScript& scriptPubKey, int& nStartingIndex);
+
 bool IsScriptReissueAsset(const CScript& scriptPubKey);
+bool IsScriptReissueAsset(const CScript& scriptPubKey, int& nStartingIndex);
+
 bool IsScriptTransferAsset(const CScript& scriptPubKey);
+bool IsScriptTransferAsset(const CScript& scriptPubKey, int& nStartingIndex);
+
+bool IsScriptNewMsgChannelAsset(const CScript& scriptPubKey);
+bool IsScriptNewMsgChannelAsset(const CScript& scriptPubKey, int& nStartingIndex);
 
 bool IsNewOwnerTxValid(const CTransaction& tx, const std::string& assetName, const std::string& address, std::string& errorMsg);
 
@@ -316,6 +327,8 @@ bool GetAllMyAssetBalances(std::map<std::string, std::vector<COutput> >& outputs
 /** Verifies that this wallet owns the give asset */
 bool VerifyWalletHasAsset(const std::string& asset_name, std::pair<int, std::string>& pairError);
 
+std::string DecodeAssetData(std::string encoded);
+std::string EncodeAssetData(std::string decoded);
 std::string DecodeIPFS(std::string encoded);
 std::string EncodeIPFS(std::string decoded);
 

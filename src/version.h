@@ -1,5 +1,5 @@
 // Copyright (c) 2012-2016 The Bitcoin Core developers
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,7 +10,7 @@
  * network protocol versioning
  */
 
-static const int PROTOCOL_VERSION = 70020;
+static const int PROTOCOL_VERSION = 70021;
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
@@ -48,5 +48,8 @@ static const int ASSETDATA_VERSION = 70017;
 
 //! getassetdata reutrn asstnotfound, and assetdata doesn't have blockhash in the data
 static const int ASSETDATA_VERSION_UPDATED = 70020;
+
+//! In this veresion, 'asset messaging' was introduced
+static const int ASSET_MESSAGING_VERSION = 70021;
 
 #endif // RAVEN_VERSION_H

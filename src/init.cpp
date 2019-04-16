@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2016 The Bitcoin Core developers
-// Copyright (c) 2017 The Raven Core developers
+// Copyright (c) 2017-2019 The Raven Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -256,6 +256,17 @@ void Shutdown()
         passetsdb = nullptr;
         delete passetsCache;
         passetsCache = nullptr;
+        delete pMessagesCache;
+        pMessagesCache = nullptr;
+        delete pMessageSubscribedChannelsCache;
+        pMessageSubscribedChannelsCache = nullptr;
+        delete pMessagesSeenAddressCache;
+        pMessagesSeenAddressCache = nullptr;
+        pmessagechanneldb = nullptr;
+        delete pmessagedb;
+        pmessagedb = nullptr;
+        delete pmessagechanneldb;
+        pmessagechanneldb = nullptr;
     }
 #ifdef ENABLE_WALLET
     StopWallets();
@@ -355,6 +366,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize));
     }
     strUsage += HelpMessageOpt("-dbcache=<n>", strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache));
+    strUsage += HelpMessageOpt("-disablemessaging", strprintf(_("Turn off the databasing the messages sent with assets (default: %u)"), false));
     if (showDebug)
         strUsage += HelpMessageOpt("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER));
     strUsage += HelpMessageOpt("-loadblock=<file>", _("Imports blocks from external blk000??.dat file on startup"));
@@ -438,6 +450,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-zmqpubhashtx=<address>", _("Enable publish hash transaction in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawblock=<address>", _("Enable publish raw block in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawtx=<address>", _("Enable publish raw transaction in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubrawmessage=<address>", _("Enable publish raw asset messages in <address>"));
 #endif
 
     strUsage += HelpMessageGroup(_("Debugging/Testing options:"));
@@ -1444,13 +1457,20 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
                 pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReset, dbMaxFileSize);
 
-
                 delete passets;
                 delete passetsdb;
                 delete passetsCache;
+                delete pmessagedb;
+                delete pmessagechanneldb;
                 passetsdb = new CAssetsDB(nBlockTreeDBCache, false, fReset);
                 passets = new CAssetsCache();
                 passetsCache = new CLRUCache<std::string, CDatabasedAssetData>(MAX_CACHE_ASSETS_SIZE);
+                pMessagesCache = new CLRUCache<std::string, CMessage>(1000);
+                pMessageSubscribedChannelsCache = new CLRUCache<std::string, int>(1000);
+                pMessagesSeenAddressCache = new CLRUCache<std::string, int>(1000);
+                pmessagedb = new CMessageDB(nBlockTreeDBCache, false, false);
+                pmessagechanneldb = new CMessageChannelDB(nBlockTreeDBCache, false, false);
+
 
                 // Read for fAssetIndex to make sure that we only load asset address balances if it if true
                 pblocktree->ReadFlag("assetindex", fAssetIndex);
@@ -1464,6 +1484,14 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                     LogPrintf("Database failed to load last Reissued Mempool State. Will have to start from empty state");
 
                 LogPrintf("Loaded Assets from database without error\nCache of assets size: %d\n", passetsCache->Size());
+
+                // Check for changed -disablemessaging state
+                if (gArgs.GetArg("-disablemessaging", false)) {
+                    LogPrintf("Messaging is disabled\n");
+                    fMessaging = false;
+                } else {
+                    LogPrintf("Messaging is enabled\n");
+                }
 
                 if (fReset) {
                     pblocktree->WriteReindexing(true);
@@ -1783,14 +1811,31 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         return false;
     }
 
-    // ********************************************************* Step 12: finished
+
+
+
+
 
     SetRPCWarmupFinished();
-    uiInterface.InitMessage(_("Done loading"));
 
 #ifdef ENABLE_WALLET
     StartWallets(scheduler);
 #endif
+
+    // ********************************************************* Step 12: Init Msg Channel list
+    if (!fReindex && fLoaded && fMessaging && pmessagechanneldb && !gArgs.GetBoolArg("-disablewallet", false)) {
+        bool found;
+        if (!pmessagechanneldb->ReadFlag("init", found)) {
+            uiInterface.InitMessage(_("Init Message Channels - Scanning Asset Transactions"));
+            std::string strLoadError;
+            if (!ScanForMessageChannels(strLoadError))
+                return InitError(strLoadError);
+            pmessagechanneldb->WriteFlag("init", true);
+        }
+    }
+
+    // ********************************************************* Step 13: finished
+    uiInterface.InitMessage(_("Done Loading"));
 
     return !fRequestShutdown;
 }
