@@ -19,8 +19,6 @@ class CHDChain
 public:
     uint32_t nExternalChainCounter;
     uint32_t nInternalChainCounter;
-    CKeyID seed_id; //!< seed hash160
-    CKey seed;
 
     uint256 id; // TODO
 
@@ -42,19 +40,36 @@ public:
     {
         READWRITE(this->nVersion);
         READWRITE(nExternalChainCounter);
-        READWRITE(seed_id);
+        READWRITE(nInternalChainCounter);
+
         READWRITE(use_bip44);
-        if (this->nVersion >= VERSION_HD_CHAIN_SPLIT)
-            READWRITE(nInternalChainCounter);
+
+        READWRITE(id);
+        READWRITE(vchSeed);
+        READWRITE(vchMnemonic);
+        READWRITE(vchMnemonicPassphrase);
     }
+
+    CHDChain(const CHDChain& other) :
+            nVersion(other.nVersion),
+            id(other.id),
+            use_bip44(other.use_bip44),
+            vchSeed(other.vchSeed),
+            vchMnemonic(other.vchMnemonic),
+            vchMnemonicPassphrase(other.vchMnemonicPassphrase)
+    {}
 
     void SetNull()
     {
         nVersion = CHDChain::CURRENT_VERSION;
         nExternalChainCounter = 0;
         nInternalChainCounter = 0;
-        seed_id.SetNull();
-        use_bip44 = false;
+        use_bip44 = true;
+
+        id = uint256();
+        vchSeed.clear();
+        vchMnemonic.clear();
+        vchMnemonicPassphrase.clear();
     }
 
     bool IsNull() const {return vchSeed.empty() || id == uint256();}
@@ -77,6 +92,37 @@ public:
 
     void DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_t& nChildIndex, CExtKey& extKeyRet);
 
+};
+
+
+
+/* hd pubkey data model */
+class CHDPubKey
+{
+private:
+    static const int CURRENT_VERSION = 1;
+    int nVersion;
+
+public:
+    CExtPubKey extPubKey;
+    uint256 hdchainID;
+    uint32_t nAccountIndex;
+    uint32_t nChangeIndex;
+
+    CHDPubKey() : nVersion(CHDPubKey::CURRENT_VERSION), nAccountIndex(0), nChangeIndex(0) {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(this->nVersion);
+        READWRITE(extPubKey);
+        READWRITE(hdchainID);
+        READWRITE(nAccountIndex);
+        READWRITE(nChangeIndex);
+    }
+
+    std::string GetKeyPath() const;
 };
 
 #endif //RAVEN_HDCHAIN_H

@@ -2622,6 +2622,9 @@ UniValue getwalletinfo(const JSONRPCRequest& request)
     ObserveSafeMode();
     LOCK2(cs_main, pwallet->cs_wallet);
 
+    CHDChain hdChainCurrent =  pwallet->GetHDChain();
+    bool fHDEnabled = !hdChainCurrent.IsNull();
+
     UniValue obj(UniValue::VOBJ);
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
@@ -2633,17 +2636,13 @@ UniValue getwalletinfo(const JSONRPCRequest& request)
     obj.push_back(Pair("txcount",       (int)pwallet->mapWallet.size()));
     obj.push_back(Pair("keypoololdest", pwallet->GetOldestKeyPoolTime()));
     obj.push_back(Pair("keypoolsize", (int64_t)kpExternalSize));
-    CKeyID seed_id = pwallet->GetHDChain().seed_id;
-    if (!seed_id.IsNull() && pwallet->CanSupportFeature(FEATURE_HD_SPLIT)) {
+    if (fHDEnabled) {
         obj.push_back(Pair("keypoolsize_hd_internal",   (int64_t)(pwallet->GetKeyPoolSize() - kpExternalSize)));
     }
     if (pwallet->IsCrypted()) {
         obj.push_back(Pair("unlocked_until", pwallet->nRelockTime));
     }
     obj.push_back(Pair("paytxfee",      ValueFromAmount(payTxFee.GetFeePerK())));
-    if (!seed_id.IsNull())
-         obj.push_back(Pair("hdseedid", seed_id.GetHex()));
-         obj.push_back(Pair("hdmasterkeyid", seed_id.GetHex()));
     return obj;
 }
 

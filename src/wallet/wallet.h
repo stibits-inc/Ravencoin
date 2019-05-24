@@ -828,6 +828,8 @@ public:
 
     std::set<COutPoint> setLockedCoins;
 
+    std::map<CKeyID, CHDPubKey> mapHdPubKeys; //<! memory map of HD extended pubkeys
+
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
@@ -1182,12 +1184,6 @@ public:
     
     /* Derives a new HD seed (will not be activated) */
     CPubKey DeriveNewSeed(const CKey& key);
-    
-    /* Set the current HD seed (will reset the chain child index counters)
-       Sets the seed's version based on the current wallet version (so the
-       caller must ensure the current wallet version is correct before calling
-       this function). */
-    bool SetHDSeed(const CPubKey& key);
 };
 
 /** A key allocated from the key pool. */

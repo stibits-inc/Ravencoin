@@ -26,7 +26,7 @@ bool CHDChain::SetMnemonic(const SecureString& ssMnemonic, const SecureString& s
 
         // empty mnemonic i.e. "generate a new one"
         if (ssMnemonic.empty()) {
-            ssMnemonicTmp = CMnemonic::Generate(256);
+            ssMnemonicTmp = CMnemonic::Generate(use_bip44 ? 128 : 256);
         }
         // NOTE: default mnemonic passphrase is an empty string
 
@@ -36,6 +36,7 @@ bool CHDChain::SetMnemonic(const SecureString& ssMnemonic, const SecureString& s
         }
 
         CMnemonic::ToSeed(ssMnemonicTmp, ssMnemonicPassphrase, vchSeed);
+        //seed.Set(vchSeed.begin(), vchSeed.end());
         id = GetSeedHash();
     }
 
@@ -89,8 +90,6 @@ uint256 CHDChain::GetSeedHash()
     return Hash(vchSeed.begin(), vchSeed.end());
 }
 
-
-
 void CHDChain::DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_t& nChildIndex, CExtKey& extKeyRet)
 {
     CExtKey masterKey;              //hd master key
@@ -101,7 +100,7 @@ void CHDChain::DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_
     CExtKey accountKey;             //key at m/[purpose'/coin_type'/]account'
     CExtKey changeKey;              //key at m/[purpose'/coin_type'/]account'/change
 
-    masterKey.SetSeed(seed.begin(), seed.size());
+    masterKey.SetSeed(vchSeed.data(), vchSeed.size());
 //    masterKey.SetSeed(&vchSeed[0], vchSeed.size());
 
     // Use hardened derivation for purpose, coin_type and account

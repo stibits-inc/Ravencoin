@@ -656,22 +656,35 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD
-    CKeyID seed_id = pwallet->GetHDChain().seed_id;
-    if (!seed_id.IsNull())
+    const CHDChain &hdChainCurrent = pwallet->GetHDChain();
+    if (!hdChainCurrent.IsNull())
     {
-        CKey seed;
-        if (pwallet->GetKey(seed_id, seed)) {
-            CExtKey masterKey;
-            masterKey.SetSeed(seed.begin(), seed.size());
+ //       if (!pwallet->GetDecryptedHDChain(hdChainCurrent))
+ //           throw JSONRPCError(RPC_INTERNAL_ERROR, "Cannot decrypt HD chain");
 
-            CRavenExtKey b58extkey;
-            b58extkey.SetKey(masterKey);
+        SecureString ssMnemonic;
+        SecureString ssMnemonicPassphrase;
+        hdChainCurrent.GetMnemonic(ssMnemonic, ssMnemonicPassphrase);
+        file << "# mnemonic: " << ssMnemonic << "\n";
+        file << "# mnemonic passphrase: " << ssMnemonicPassphrase << "\n\n";
 
-            file << "# seed: " << HexStr(seed.begin(), seed.end()) << "\n\n";
-            file << "# extended private masterkey: " << b58extkey.ToString() << "\n\n";
-        }
-        else
-            file << "# extended private masterkey: pwallet->GetKey(seed_id, seed)) returns false\n\n";
+        SecureVector vchSeed = hdChainCurrent.GetSeed();
+        file << "# HD seed: " << HexStr(vchSeed) << "\n\n";
+
+        CExtKey masterKey;
+        masterKey.SetSeed(&vchSeed[0], vchSeed.size());
+
+        CRavenExtKey b58extkey;
+        b58extkey.SetKey(masterKey);
+
+        file << "# extended private masterkey: " << b58extkey.ToString() << "\n";
+
+        CExtPubKey masterPubkey;
+        masterPubkey = masterKey.Neuter();
+
+        CRavenExtPubKey b58extpubkey;
+        b58extpubkey.SetKey(masterPubkey);
+        file << "# extended public masterkey: " << b58extpubkey.ToString() << "\n\n";
     } else
         file << "# extended private masterkey: seed-id isNull\n\n";
 
@@ -684,8 +697,6 @@ UniValue dumpwallet(const JSONRPCRequest& request)
             file << strprintf("%s %s ", CRavenSecret(key).ToString(), strTime);
             if (pwallet->mapAddressBook.count(keyid)) {
                 file << strprintf("label=%s", EncodeDumpString(pwallet->mapAddressBook[keyid].name));
-            } else if (keyid == seed_id) {
-                file << "hdseed=1";
             } else if (mapKeyPool.count(keyid)) {
                 file << "reserve=1";
             } else if (pwallet->mapKeyMetadata[keyid].hdKeypath == "s") {
