@@ -174,42 +174,38 @@ CPubKey CWallet::GenerateNewKey(CWalletDB &walletdb, bool internal)
 void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKeyMetadata& metadata, CKey& secret, bool internal)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
-    CKey seed;                     //seed (256bit)
-    CExtKey masterKey;             //hd master key
-    CExtKey accountKey;            //key at m/0'
-    CExtKey chainChildKey;         //key at m/0'/0' (external) or m/0'/1' (internal)
-    CExtKey childKey;              //key at m/0'/0'/<n>'
+
+    uint32_t nAccountIndex = 0; // TODO add HDAccounts management
+
+    CHDChain hdChainTmp = GetHDChain();
 
     // try to get the seed
-    if (!GetKey(hdChain.seed_id, seed))
+    if (!GetKey(hdChainTmp.seed_id, hdChainTmp.seed))
         throw std::runtime_error(std::string(__func__) + ": seed not found");
 
-    masterKey.SetSeed(seed.begin(), seed.size());
 
-    // derive m/0'
-    // use hardened derivation (child keys >= 0x80000000 are hardened after bip32)
-    masterKey.Derive(accountKey, BIP32_HARDENED_KEY_LIMIT);
 
-    // derive m/0'/0' (external chain) OR m/0'/1' (internal chain)
-    assert(internal ? CanSupportFeature(FEATURE_HD_SPLIT) : true);
-    accountKey.Derive(chainChildKey, BIP32_HARDENED_KEY_LIMIT+(internal ? 1 : 0));
+    // for now we use a fixed keypath scheme of m/0'/0'/k
+    //CKey seed;                     //seed (256bit)
+    CExtKey childKey;              //key at m/0'/0'/<n>'
 
-    // derive child key at next index, skip keys already known to the wallet
+ //   if (hdChainTmp.IsNull()) {
+  //      throw std::runtime_error(std::string(__func__) + ": GetHDChain failed");
+ //   }
+
+    uint32_t& nChildIndex = internal ? hdChainTmp.nInternalChainCounter : hdChainTmp.nExternalChainCounter;
     do {
-        // always derive hardened keys
-        // childIndex | BIP32_HARDENED_KEY_LIMIT = derive childIndex in hardened child-index-range
-        // example: 1 | BIP32_HARDENED_KEY_LIMIT == 0x80000001 == 2147483649
-        if (internal) {
-            chainChildKey.Derive(childKey, hdChain.nInternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
-            metadata.hdKeypath = "m/0'/1'/" + std::to_string(hdChain.nInternalChainCounter) + "'";
-            hdChain.nInternalChainCounter++;
-        }
-        else {
-            chainChildKey.Derive(childKey, hdChain.nExternalChainCounter | BIP32_HARDENED_KEY_LIMIT);
-            metadata.hdKeypath = "m/0'/0'/" + std::to_string(hdChain.nExternalChainCounter) + "'";
-            hdChain.nExternalChainCounter++;
-        }
+        hdChainTmp.DeriveChildExtKey(nAccountIndex, internal, nChildIndex, childKey);
+        // increment childkey index
+        nChildIndex++;
     } while (HaveKey(childKey.key.GetPubKey().GetID()));
+
+    if(hdChainTmp.IsBip44())
+        metadata.hdKeypath = strprintf("m/44'/%d'/%d'/%d/%d", Params().ExtCoinType(), nAccountIndex, internal, nChildIndex);
+    else
+        metadata.hdKeypath = strprintf("m/%d'/%d'/%d", nAccountIndex, internal, nChildIndex);
+
+
     secret = childKey.key;
     metadata.hd_seed_id = hdChain.seed_id;
     // update the chain model in the database
@@ -1394,9 +1390,49 @@ CAmount CWallet::GetChange(const CTransaction& tx) const
 
 CPubKey CWallet::GenerateNewSeed()
 {
-    CKey key;
-    key.MakeNewKey(true);
-    return DeriveNewSeed(key);
+    CHDChain newHdChain;
+    newHdChain.UseBip44(hdChain.IsBip44());
+    std::string strSeed = gArgs.GetArg("-hdseed", "not hex");
+
+    if(gArgs.IsArgSet("-hdseed") && IsHex(strSeed)) {
+        std::vector<unsigned char> vchSeed = ParseHex(strSeed);
+        CPubKey seedRet(vchSeed.begin(), vchSeed.end());
+        return seedRet;
+    }
+    else {
+        if (gArgs.IsArgSet("-hdseed") && !IsHex(strSeed))
+            LogPrintf("CWallet::GenerateNewHDChain -- Incorrect seed, generating random one instead\n");
+
+
+        if (gArgs.IsArgSet("-mnemonic")) {
+            // NOTE: empty mnemonic means "generate a new one for me"
+            std::string strMnemonic = gArgs.GetArg("-mnemonic", "");
+            // NOTE: default mnemonic passphrase is an empty string
+            std::string strMnemonicPassphrase = gArgs.GetArg("-mnemonicpassphrase", "");
+
+            SecureVector vchMnemonic(strMnemonic.begin(), strMnemonic.end());
+            SecureVector vchMnemonicPassphrase(strMnemonicPassphrase.begin(), strMnemonicPassphrase.end());
+
+            if (!newHdChain.SetMnemonic(vchMnemonic, vchMnemonicPassphrase, true))
+                throw std::runtime_error(std::string(__func__) + ": SetMnemonic failed");
+        } else{
+            CKey key;
+            key.MakeNewKey(true);
+            return DeriveNewSeed(key);
+        }
+    }
+    newHdChain.Debug(__func__);
+
+    if (!SetHDChain(newHdChain, false))
+        throw std::runtime_error(std::string(__func__) + ": SetHDChain failed");
+/*
+    // clean up
+    gArgs.ForceRemoveArg("-hdseed");
+    gArgs.ForceRemoveArg("-mnemonic");
+    gArgs.ForceRemoveArg("-mnemonicpassphrase");
+*/
+
+
 }
 
 CPubKey CWallet::DeriveNewSeed(const CKey& key)
@@ -1435,6 +1471,8 @@ bool CWallet::SetHDSeed(const CPubKey& seed)
     CHDChain newHdChain;
     newHdChain.nVersion = CanSupportFeature(FEATURE_HD_SPLIT) ? CHDChain::VERSION_HD_CHAIN_SPLIT : CHDChain::VERSION_HD_BASE;
     newHdChain.seed_id = seed.GetID();
+    newHdChain.seed.Set(seed.begin(), seed.end(), false);
+    newHdChain.UseBip44(hdChain.IsBip44());
     SetHDChain(newHdChain, false);
 
     return true;
@@ -1443,10 +1481,14 @@ bool CWallet::SetHDSeed(const CPubKey& seed)
 bool CWallet::SetHDChain(const CHDChain& chain, bool memonly)
 {
     LOCK(cs_wallet);
+    LogPrintf("####### BIP 44 , memonly = %d #### \n", memonly);
+    LogPrintf("####### BIP 44 , hdChain = %d,  chain = %d\n", hdChain.IsBip44(), chain.IsBip44());
+
     if (!memonly && !CWalletDB(*dbw).WriteHDChain(chain))
         throw std::runtime_error(std::string(__func__) + ": writing chain failed");
 
     hdChain = chain;
+    LogPrintf("####### BIP 44 , hdChain = %d,  chain = %d\n", hdChain.IsBip44(), chain.IsBip44());
     return true;
 }
 
@@ -4563,6 +4605,16 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
             InitError(strprintf(_("Error creating %s: You can't create non-HD wallets with this version."), walletFile));
             return nullptr;
         }
+
+        if (gArgs.GetArg("-mnemonicpassphrase", "").size() > 256) {
+            InitError(_("Mnemonic passphrase is too long, must be at most 256 characters"));
+            return nullptr;
+        }
+
+        walletInstance->UseBip44(gArgs.GetBoolArg("-bip44", true));
+        LogPrintf("!gArgs.IsArgSet(\"-nobip44\") = %d", !gArgs.IsArgSet("-nobip44"));
+        LogPrintf("!gArgs.IsArgSet(\"-bip44\") = %d", !gArgs.IsArgSet("-bip44"));
+
         walletInstance->SetMinVersion(FEATURE_NO_DEFAULT_KEY);
 
         // generate a new seed

@@ -244,6 +244,7 @@ public:
 bool ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
              CWalletScanState &wss, std::string& strType, std::string& strErr)
 {
+    LogPrintf("ReadKeyValue called BIP 44 = %s\n", strType.c_str());
     try {
         // Unserialize
         // Taking advantage of the fact that pair serialization

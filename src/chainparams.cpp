@@ -67,39 +67,39 @@ void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64
 }
 
 void CChainParams::TurnOffSegwit() {
-	consensus.nSegwitEnabled = false;
+    consensus.nSegwitEnabled = false;
 }
 
 void CChainParams::TurnOffCSV() {
-	consensus.nCSVEnabled = false;
+    consensus.nCSVEnabled = false;
 }
 
 void CChainParams::TurnOffBIP34() {
-	consensus.nBIP34Enabled = false;
+    consensus.nBIP34Enabled = false;
 }
 
 void CChainParams::TurnOffBIP65() {
-	consensus.nBIP65Enabled = false;
+    consensus.nBIP65Enabled = false;
 }
 
 void CChainParams::TurnOffBIP66() {
-	consensus.nBIP66Enabled = false;
+    consensus.nBIP66Enabled = false;
 }
 
 bool CChainParams::BIP34() {
-	return consensus.nBIP34Enabled;
+    return consensus.nBIP34Enabled;
 }
 
 bool CChainParams::BIP65() {
-	return consensus.nBIP34Enabled;
+    return consensus.nBIP34Enabled;
 }
 
 bool CChainParams::BIP66() {
-	return consensus.nBIP34Enabled;
+    return consensus.nBIP34Enabled;
 }
 
 bool CChainParams::CSVEnabled() const{
-	return consensus.nCSVEnabled;
+    return consensus.nCSVEnabled;
 }
 
 
@@ -127,7 +127,7 @@ public:
         consensus.powLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 2016 * 60; // 1.4 days
         consensus.nPowTargetSpacing = 1 * 60;
-		consensus.fPowAllowMinDifficultyBlocks = false;
+        consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1814; // Approx 90% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
@@ -183,6 +183,10 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
+
+        // Raven BIP44 coin type is '173'
+        nExtCoinType = 173;
+
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
         fDefaultConsistencyChecks = false;
@@ -191,18 +195,18 @@ public:
         fMiningRequiresPeers = true;
 
         checkpointData = (CCheckpointData) {
-            {
-                { 535721, uint256S("0x000000000001217f58a594ca742c8635ecaaaf695d1a63f6ab06979f1c159e04")},
-            }
+                {
+                        { 535721, uint256S("0x000000000001217f58a594ca742c8635ecaaaf695d1a63f6ab06979f1c159e04")},
+                }
         };
 
         chainTxData = ChainTxData{
-            // Update as we know more about the contents of the Raven chain
-            // Stats as of 000000000000a72545994ce72b25042ea63707fca169ca4deb7f9dab4f1b1798 window size 43200
-            1543817453, // * UNIX timestamp of last known number of transactions
-            2033711,    // * total number of transactions between genesis and that timestamp
-                        //   (the tx=... number in the SetBestChain debug.log lines)
-            0.1         // * estimated number of transactions per second after that timestamp
+                // Update as we know more about the contents of the Raven chain
+                // Stats as of 000000000000a72545994ce72b25042ea63707fca169ca4deb7f9dab4f1b1798 window size 43200
+                1543817453, // * UNIX timestamp of last known number of transactions
+                2033711,    // * total number of transactions between genesis and that timestamp
+                //   (the tx=... number in the SetBestChain debug.log lines)
+                0.1         // * estimated number of transactions per second after that timestamp
         };
 
         /** RVN Start **/
@@ -356,6 +360,8 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
+        nExtCoinType = 1;
+
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
         fDefaultConsistencyChecks = false;
@@ -364,17 +370,17 @@ public:
         fMiningRequiresPeers = true;
 
         checkpointData = (CCheckpointData) {
-            {
-            }
+                {
+                }
         };
 
         chainTxData = ChainTxData{
-            // Update as we know more about the contents of the Raven chain
-            // Stats as of 00000023b66f46d74890287a7b1157dd780c7c5fdda2b561eb96684d2b39d62e window size 43200
-            1543633332, // * UNIX timestamp of last known number of transactions
-            146666,     // * total number of transactions between genesis and that timestamp
-                        //   (the tx=... number in the SetBestChain debug.log lines)
-            0.02        // * estimated number of transactions per second after that timestamp
+                // Update as we know more about the contents of the Raven chain
+                // Stats as of 00000023b66f46d74890287a7b1157dd780c7c5fdda2b561eb96684d2b39d62e window size 43200
+                1543633332, // * UNIX timestamp of last known number of transactions
+                146666,     // * total number of transactions between genesis and that timestamp
+                //   (the tx=... number in the SetBestChain debug.log lines)
+                0.02        // * estimated number of transactions per second after that timestamp
         };
 
         /** RVN Start **/
@@ -519,14 +525,14 @@ public:
         fMineBlocksOnDemand = true;
 
         checkpointData = (CCheckpointData) {
-            {
-            }
+                {
+                }
         };
 
         chainTxData = ChainTxData{
-            0,
-            0,
-            0
+                0,
+                0,
+                0
         };
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
@@ -535,6 +541,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
+        nExtCoinType = 1;
 
         /** RVN Start **/
         // Burn Amounts
@@ -592,21 +599,21 @@ void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime,
 }
 
 void TurnOffSegwit(){
-	globalChainParams->TurnOffSegwit();
+    globalChainParams->TurnOffSegwit();
 }
 
 void TurnOffCSV() {
-	globalChainParams->TurnOffCSV();
+    globalChainParams->TurnOffCSV();
 }
 
 void TurnOffBIP34() {
-	globalChainParams->TurnOffBIP34();
+    globalChainParams->TurnOffBIP34();
 }
 
 void TurnOffBIP65() {
-	globalChainParams->TurnOffBIP65();
+    globalChainParams->TurnOffBIP65();
 }
 
 void TurnOffBIP66() {
-	globalChainParams->TurnOffBIP66();
+    globalChainParams->TurnOffBIP66();
 }

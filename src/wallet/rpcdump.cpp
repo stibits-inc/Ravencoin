@@ -667,9 +667,14 @@ UniValue dumpwallet(const JSONRPCRequest& request)
             CRavenExtKey b58extkey;
             b58extkey.SetKey(masterKey);
 
+            file << "# seed: " << HexStr(seed.begin(), seed.end()) << "\n\n";
             file << "# extended private masterkey: " << b58extkey.ToString() << "\n\n";
         }
-    }
+        else
+            file << "# extended private masterkey: pwallet->GetKey(seed_id, seed)) returns false\n\n";
+    } else
+        file << "# extended private masterkey: seed-id isNull\n\n";
+
     for (std::vector<std::pair<int64_t, CKeyID> >::const_iterator it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
         const CKeyID &keyid = it->second;
         std::string strTime = EncodeDumpTime(it->first);
