@@ -143,13 +143,9 @@ CPubKey CWallet::GenerateNewKey(CWalletDB &walletdb, bool internal)
 
     CKey secret;
 
-    // Create new metadata
-    int64_t nCreationTime = GetTime();
-    CKeyMetadata metadata(nCreationTime);
-
     // use HD key derivation if HD was enabled during wallet creation
     if (IsHDEnabled()) {
-        DeriveNewChildKey(walletdb, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
+        DeriveNewChildKey(walletdb, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
     } else {
         secret.MakeNewKey(fCompressed);
     }
@@ -162,8 +158,6 @@ CPubKey CWallet::GenerateNewKey(CWalletDB &walletdb, bool internal)
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    mapKeyMetadata[pubkey.GetID()] = metadata;
-    UpdateTimeFirstKey(nCreationTime);
 
     if (!AddKeyPubKeyWithDB(walletdb, secret, pubkey)) {
         throw std::runtime_error(std::string(__func__) + ": AddKey failed");
@@ -171,7 +165,7 @@ CPubKey CWallet::GenerateNewKey(CWalletDB &walletdb, bool internal)
     return pubkey;
 }
 
-void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKeyMetadata& metadata, CKey& secret, bool internal)
+void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKey& secret, bool internal)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
 
@@ -200,20 +194,86 @@ void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKeyMetadata& metadata, CKe
         nChildIndex++;
     } while (HaveKey(childKey.key.GetPubKey().GetID()));
 
-    if(hdChainTmp.IsBip44())
-        metadata.hdKeypath = strprintf("m/44'/%d'/%d'/%d/%d", Params().ExtCoinType(), nAccountIndex, internal, nChildIndex);
-    else
-        metadata.hdKeypath = strprintf("m/%d'/%d'/%d", nAccountIndex, internal, nChildIndex);
-
+    nChildIndex--;
 
     secret = childKey.key;
 
-//    metadata.hd_seed_id = hdChain.seed_id;
+    // Create new metadata
+    int64_t nCreationTime = GetTime();
+    CKeyMetadata metadata(nCreationTime);
+
+    if(hdChainTmp.IsBip44())
+        metadata.hdKeypath = strprintf("m/44'/%d'/%d'/%d/%d", Params().ExtCoinType(), nAccountIndex, internal, nChildIndex);
+    else
+        metadata.hdKeypath = strprintf("m/%d'/%d/%d", nAccountIndex, internal, nChildIndex);
+
+    mapKeyMetadata[secret.GetPubKey().GetID()] = metadata;
+    UpdateTimeFirstKey(nCreationTime);
+
     SetHDChain(hdChainTmp, false);
 
     // update the chain model in the database
-    //if (!walletdb.WriteHDChain(hdChainTmp))
-    //    throw std::runtime_error(std::string(__func__) + ": Writing HD chain model failed");
+    if (!walletdb.WriteHDChain(hdChainTmp))
+        throw std::runtime_error(std::string(__func__) + ": Writing HD chain model failed");
+}
+
+
+bool CWallet::GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const
+{
+    LOCK(cs_wallet);
+    std::map<CKeyID, CHDPubKey>::const_iterator mi = mapHdPubKeys.find(address);
+    if (mi != mapHdPubKeys.end())
+    {
+        const CHDPubKey &hdPubKey = (*mi).second;
+        vchPubKeyOut = hdPubKey.extPubKey.pubkey;
+        return true;
+    }
+    else
+        return CCryptoKeyStore::GetPubKey(address, vchPubKeyOut);
+}
+
+bool CWallet::GetKey(const CKeyID &address, CKey& keyOut) const
+{
+    LOCK(cs_wallet);
+    std::map<CKeyID, CHDPubKey>::const_iterator mi = mapHdPubKeys.find(address);
+    if (mi != mapHdPubKeys.end())
+    {
+        // if the key has been found in mapHdPubKeys, derive it on the fly
+        const CHDPubKey &hdPubKey = (*mi).second;
+        CHDChain hdChainCurrent;
+        if (!GetHDChain(hdChainCurrent))
+            throw std::runtime_error(std::string(__func__) + ": GetHDChain failed");
+//        if (!DecryptHDChain(hdChainCurrent))
+//            throw std::runtime_error(std::string(__func__) + ": DecryptHDChainSeed failed");
+        // make sure seed matches this chain
+        if (hdChainCurrent.GetID() != hdChainCurrent.GetSeedHash())
+            throw std::runtime_error(std::string(__func__) + ": Wrong HD chain!");
+
+        CExtKey extkey;
+        hdChainCurrent.DeriveChildExtKey(hdPubKey.nAccountIndex, hdPubKey.nChangeIndex != 0, hdPubKey.extPubKey.nChild, extkey);
+        keyOut = extkey.key;
+
+        LogPrintf("CWallet::GetKey call DeriveChildExtKey\n");
+
+        return true;
+    }
+    else {
+        return CCryptoKeyStore::GetKey(address, keyOut);
+    }
+}
+
+bool CWallet::HaveKey(const CKeyID &address) const
+{
+    LOCK(cs_wallet);
+    if (mapHdPubKeys.count(address) > 0)
+        return true;
+    return CCryptoKeyStore::HaveKey(address);
+}
+
+bool CWallet::GetHDChain(CHDChain& hdChainRet) const
+{
+    hdChainRet = hdChain;
+    return !hdChain.IsNull();
 }
 
 bool CWallet::AddKeyPubKeyWithDB(CWalletDB &walletdb, const CKey& secret, const CPubKey &pubkey)
@@ -1392,7 +1452,7 @@ CAmount CWallet::GetChange(const CTransaction& tx) const
     return nChange;
 }
 
-CPubKey CWallet::GenerateNewSeed()
+void CWallet::GenerateNewSeed()
 {
     CHDChain newHdChain;
     newHdChain.UseBip44(gArgs.GetBoolArg("-bip44", true));
@@ -1401,7 +1461,7 @@ CPubKey CWallet::GenerateNewSeed()
     if(gArgs.IsArgSet("-hdseed") && IsHex(strSeed)) {
         std::vector<unsigned char> vchSeed = ParseHex(strSeed);
         CPubKey seedRet(vchSeed.begin(), vchSeed.end());
-        return seedRet;
+        return;
     }
     else {
         if (gArgs.IsArgSet("-hdseed") && !IsHex(strSeed))
@@ -1424,12 +1484,6 @@ CPubKey CWallet::GenerateNewSeed()
 
     if (!SetHDChain(newHdChain, false))
         throw std::runtime_error(std::string(__func__) + ": SetHDChain failed");
-/*
-    // clean up
-    gArgs.ForceRemoveArg("-hdseed");
-    gArgs.ForceRemoveArg("-mnemonic");
-    gArgs.ForceRemoveArg("-mnemonicpassphrase");
-*/
 
 
 }
@@ -1465,20 +1519,17 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
 bool CWallet::SetHDChain(const CHDChain& chain, bool memonly)
 {
     LOCK(cs_wallet);
-    LogPrintf("####### BIP 44 , memonly = %d #### \n", memonly);
-    LogPrintf("####### BIP 44 , hdChain = %d,  chain = %d\n", hdChain.IsBip44(), chain.IsBip44());
 
     if (!memonly && !CWalletDB(*dbw).WriteHDChain(chain))
         throw std::runtime_error(std::string(__func__) + ": writing chain failed");
 
     hdChain = chain;
-    LogPrintf("####### BIP 44 , hdChain = %d,  chain = %d\n", hdChain.IsBip44(), chain.IsBip44());
     return true;
 }
 
 bool CWallet::IsHDEnabled() const
 {
-    return GetHDChain().IsNull();
+    return !GetHDChain().IsNull();
 }
 
 int64_t CWalletTx::GetTxTime() const
@@ -4596,8 +4647,6 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
         }
 
         walletInstance->UseBip44(gArgs.GetBoolArg("-bip44", true));
-        LogPrintf("!gArgs.IsArgSet(\"-nobip44\") = %d", !gArgs.IsArgSet("-nobip44"));
-        LogPrintf("!gArgs.IsArgSet(\"-bip44\") = %d", !gArgs.IsArgSet("-bip44"));
 
         walletInstance->SetMinVersion(FEATURE_NO_DEFAULT_KEY);
 

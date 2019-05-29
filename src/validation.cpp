@@ -2866,7 +2866,6 @@ bool static DisconnectTip(CValidationState& state, const CChainParams& chainpara
     {
         CCoinsViewCache view(pcoinsTip);
 
-        auto currentActiveAssetCache = GetCurrentAssetCache();
         CAssetsCache assetCache;
 
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());

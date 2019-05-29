@@ -17,7 +17,7 @@
 #include "validation.h"
 #include "wallet/coincontrol.h"
 #include "wallet/test/wallet_test_fixture.h"
-
+//#define BOOST_TEST_NO_OLD_TOOLS 1
 #include <boost/test/unit_test.hpp>
 #include <univalue.h>
 #include "util.h"

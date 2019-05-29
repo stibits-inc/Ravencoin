@@ -51,13 +51,28 @@ public:
     }
 
     CHDChain(const CHDChain& other) :
-            nVersion(other.nVersion),
+            nExternalChainCounter(other.nExternalChainCounter),
+            nInternalChainCounter(other.nInternalChainCounter),
             id(other.id),
             use_bip44(other.use_bip44),
             vchSeed(other.vchSeed),
             vchMnemonic(other.vchMnemonic),
-            vchMnemonicPassphrase(other.vchMnemonicPassphrase)
+            vchMnemonicPassphrase(other.vchMnemonicPassphrase),
+            nVersion(other.nVersion)
     {}
+
+    CHDChain& operator =(const CHDChain& other)  {
+            nExternalChainCounter = other.nExternalChainCounter;
+            nInternalChainCounter = other.nInternalChainCounter;
+            id = other.id;
+            use_bip44 = other.use_bip44;
+            vchSeed = other.vchSeed;
+            vchMnemonic = other.vchMnemonic;
+            vchMnemonicPassphrase = other.vchMnemonicPassphrase;
+            nVersion = other.nVersion;
+
+            return *this;
+    }
 
     void SetNull()
     {
@@ -88,9 +103,11 @@ public:
     bool SetSeed(const SecureVector& vchSeedIn, bool fUpdateID);
     SecureVector GetSeed() const;
 
+    uint256 GetID() const { return id; }
+
     uint256 GetSeedHash();
 
-    void DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_t& nChildIndex, CExtKey& extKeyRet);
+    void DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_t nChildIndex, CExtKey& extKeyRet);
 
 };
 

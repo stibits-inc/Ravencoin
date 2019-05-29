@@ -184,8 +184,8 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
 
-        // Raven BIP44 coin type is '173'
-        nExtCoinType = 173;
+        // Raven BIP44 coin type is '175'
+        nExtCoinType = 175;
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
