@@ -205,7 +205,7 @@ void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKey& secret, bool internal
     if(hdChainTmp.IsBip44())
         metadata.hdKeypath = strprintf("m/44'/%d'/%d'/%d/%d", Params().ExtCoinType(), nAccountIndex, internal, nChildIndex);
     else
-        metadata.hdKeypath = strprintf("m/%d'/%d/%d", nAccountIndex, internal, nChildIndex);
+        metadata.hdKeypath = strprintf("m/%d'/%d'/%d'", nAccountIndex, internal, nChildIndex);
 
     mapKeyMetadata[secret.GetPubKey().GetID()] = metadata;
     UpdateTimeFirstKey(nCreationTime);

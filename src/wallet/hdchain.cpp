@@ -10,6 +10,9 @@
 #include "chainparams.h"
 
 
+const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
+
+
 bool CHDChain::SetMnemonic(const SecureVector& vchMnemonic, const SecureVector& vchMnemonicPassphrase, bool fUpdateID)
 {
     return SetMnemonic(SecureString(vchMnemonic.begin(), vchMnemonic.end()), SecureString(vchMnemonicPassphrase.begin(), vchMnemonicPassphrase.end()), fUpdateID);
@@ -110,11 +113,11 @@ void CHDChain::DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_
         // Use BIP44 keypath scheme i.e. m / purpose' / coin_type' / account' / change / address_index
 
         // derive m/purpose'
-        masterKey.Derive(purposeKey, 44 | 0x80000000);
+        masterKey.Derive(purposeKey, 44 | BIP32_HARDENED_KEY_LIMIT);
         // derive m/purpose'/coin_type'
-        purposeKey.Derive(coinTypeKey, Params().ExtCoinType() | 0x80000000);
+        purposeKey.Derive(coinTypeKey, Params().ExtCoinType() | BIP32_HARDENED_KEY_LIMIT);
         // derive m/purpose'/coin_type'/account'
-        coinTypeKey.Derive(accountKey, nAccountIndex | 0x80000000);
+        coinTypeKey.Derive(accountKey, nAccountIndex | BIP32_HARDENED_KEY_LIMIT);
         // derive m/purpose'/coin_type'/account'/change
         accountKey.Derive(changeKey, fInternal ? 1 : 0);
         // derive m/purpose'/coin_type'/account'/change/address_index
@@ -122,13 +125,13 @@ void CHDChain::DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_
     }
     else
     {
-        // Use BIP32 keypath scheme i.e. m / account' / change / address_index
+        // Use BIP32 keypath scheme i.e. m / account' / change' / address_index'
 
         // derive m/account'
-        masterKey.Derive(accountKey, nAccountIndex | 0x80000000);
+        masterKey.Derive(accountKey, nAccountIndex | BIP32_HARDENED_KEY_LIMIT);
         // derive m/account'/change
-        accountKey.Derive(changeKey, fInternal ? 1 : 0);
+        accountKey.Derive(changeKey, BIP32_HARDENED_KEY_LIMIT + fInternal ? 1 : 0);
         // derive m/account'/change/address_index
-        changeKey.Derive(extKeyRet, nChildIndex);
+        changeKey.Derive(extKeyRet, BIP32_HARDENED_KEY_LIMIT |  nChildIndex);
     }
 }
