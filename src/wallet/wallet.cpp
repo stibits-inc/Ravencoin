@@ -1460,8 +1460,8 @@ void CWallet::GenerateNewSeed()
 
     if(gArgs.IsArgSet("-hdseed") && IsHex(strSeed)) {
         std::vector<unsigned char> vchSeed = ParseHex(strSeed);
-        CPubKey seedRet(vchSeed.begin(), vchSeed.end());
-        return;
+        if (!newHdChain.SetSeed(SecureVector(vchSeed.begin(), vchSeed.end()), true))
+            throw std::runtime_error(std::string(__func__) + ": SetSeed failed");
     }
     else {
         if (gArgs.IsArgSet("-hdseed") && !IsHex(strSeed))
@@ -1480,11 +1480,11 @@ void CWallet::GenerateNewSeed()
 
 
     }
+
     newHdChain.Debug(__func__);
 
     if (!SetHDChain(newHdChain, false))
         throw std::runtime_error(std::string(__func__) + ": SetHDChain failed");
-
 
 }
 
@@ -4635,12 +4635,6 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
 
     if (fFirstRun)
     {
-        // ensure this wallet.dat can only be opened by clients supporting HD with chain split and expects no default key
-        if (!gArgs.GetBoolArg("-usehd", true)) {
-            InitError(strprintf(_("Error creating %s: You can't create non-HD wallets with this version."), walletFile));
-            return nullptr;
-        }
-
         if (gArgs.GetArg("-mnemonicpassphrase", "").size() > 256) {
             InitError(_("Mnemonic passphrase is too long, must be at most 256 characters"));
             return nullptr;
@@ -4661,16 +4655,11 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
 
         walletInstance->SetBestChain(chainActive.GetLocator());
     }
-    else if (gArgs.IsArgSet("-usehd")) {
-        bool useHD = gArgs.GetBoolArg("-usehd", true);
-        if (walletInstance->IsHDEnabled() && !useHD) {
-            InitError(strprintf(_("Error loading %s: You can't disable HD on an already existing HD wallet"), walletFile));
+    else if (gArgs.IsArgSet("-hdseed")  || gArgs.IsArgSet("-mnemonic") ) {
+
+            InitError(strprintf(_("Error loading %s: "
+                                  "'-hdseed' and '-mnemonic' has effect only when creating a new wallet, you can use \"-wallet=XXX\" specifier in order to create new wallet"), walletFile));
             return nullptr;
-        }
-        if (!walletInstance->IsHDEnabled() && useHD) {
-            InitError(strprintf(_("Error loading %s: You can't enable HD on an already existing non-HD wallet"), walletFile));
-            return nullptr;
-        }
     }
 
     LogPrintf(" wallet      %15dms\n", GetTimeMillis() - nStart);

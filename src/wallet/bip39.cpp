@@ -160,3 +160,23 @@ void CMnemonic::ToSeed(SecureString mnemonic, SecureString passphrase, SecureVec
     //                    int keylen, unsigned char *out);
     PKCS5_PBKDF2_HMAC(mnemonic.c_str(), mnemonic.size(), &vchSalt[0], vchSalt.size(), 2048, EVP_sha512(), 64, &seedRet[0]);
 }
+
+// compute the number of words in a mnemonic
+uint32_t CMnemonic::WordsCount(SecureString mnemonic)
+{
+    bool in_word = false;
+    uint32_t count = 0;
+
+    for (int i = 0; i < mnemonic.size(); ++i) {
+        if(isspace(mnemonic[i]) && in_word)
+            in_word = false;
+        else
+        if(!isspace(mnemonic[i]) && !in_word)
+        {
+            count++;
+            in_word = true;
+        }
+    }
+
+    return count;
+}

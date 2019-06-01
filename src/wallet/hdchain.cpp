@@ -31,11 +31,28 @@ bool CHDChain::SetMnemonic(const SecureString& ssMnemonic, const SecureString& s
         if (ssMnemonic.empty()) {
             ssMnemonicTmp = CMnemonic::Generate(use_bip44 ? 128 : 256);
         }
-        // NOTE: default mnemonic passphrase is an empty string
+        else
+        {
+            // NOTE: default mnemonic passphrase is an empty string
 
-        // printf("mnemonic: %s\n", ssMnemonicTmp.c_str());
-        if (!CMnemonic::Check(ssMnemonicTmp)) {
-            throw std::runtime_error(std::string(__func__) + ": invalid mnemonic: `" + std::string(ssMnemonicTmp.c_str()) + "`");
+            if (!CMnemonic::Check(ssMnemonicTmp)) {
+                throw std::runtime_error(std::string(__func__) + ": invalid mnemonic: `" + std::string(ssMnemonicTmp.c_str()) + "`");
+            }
+
+            // count mnemonic words number, and set "use_bip44" accordently, 12 words => true, 24 words => false.
+            uint32_t count = CMnemonic::WordsCount(ssMnemonicTmp);
+            switch(count)
+            {
+                case 12:
+                    use_bip44 = true;
+                    break;
+                case 24:
+                    use_bip44 = false;
+                    break;
+                default: // 18 words
+                    throw std::runtime_error(std::string(__func__) + ": invalid mnemonic: `" + std::string(ssMnemonicTmp.c_str()) + "`\n only 12 and 24 words are allowed");
+                    break;
+            }
         }
 
         CMnemonic::ToSeed(ssMnemonicTmp, ssMnemonicPassphrase, vchSeed);
@@ -130,7 +147,7 @@ void CHDChain::DeriveChildExtKey(uint32_t nAccountIndex, bool fInternal, uint32_
         // derive m/account'
         masterKey.Derive(accountKey, nAccountIndex | BIP32_HARDENED_KEY_LIMIT);
         // derive m/account'/change
-        accountKey.Derive(changeKey, BIP32_HARDENED_KEY_LIMIT + fInternal ? 1 : 0);
+        accountKey.Derive(changeKey, BIP32_HARDENED_KEY_LIMIT + (fInternal ? 1 : 0));
         // derive m/account'/change/address_index
         changeKey.Derive(extKeyRet, BIP32_HARDENED_KEY_LIMIT |  nChildIndex);
     }
