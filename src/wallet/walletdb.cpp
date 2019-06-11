@@ -244,7 +244,6 @@ public:
 bool ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
              CWalletScanState &wss, std::string& strType, std::string& strErr)
 {
-    LogPrintf("ReadKeyValue called BIP 44 = %s\n", strType.c_str());
     try {
         // Unserialize
         // Taking advantage of the fact that pair serialization
@@ -580,6 +579,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
                 {
                     // Leave other errors alone, if we try to fix them we might make things worse.
                     fNoncriticalErrors = true; // ... but do warn the user there is something wrong.
+                    LogPrintf("NonCriticalError : when loading the value of %s from the wallet database\n", strType.c_str());
                     if (strType == "tx") {
                         // Rescan if there is a bad transaction record:
                         gArgs.SoftSetBoolArg("-rescan", true);

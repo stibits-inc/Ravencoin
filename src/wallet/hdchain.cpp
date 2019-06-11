@@ -9,9 +9,7 @@
 #include "key.h"
 #include "chainparams.h"
 
-
 const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
-
 
 bool CHDChain::SetMnemonic(const SecureVector& vchMnemonic, const SecureVector& vchMnemonicPassphrase, bool fUpdateID)
 {
@@ -34,7 +32,6 @@ bool CHDChain::SetMnemonic(const SecureString& ssMnemonic, const SecureString& s
         else
         {
             // NOTE: default mnemonic passphrase is an empty string
-
             if (!CMnemonic::Check(ssMnemonicTmp)) {
                 throw std::runtime_error(std::string(__func__) + ": invalid mnemonic: `" + std::string(ssMnemonicTmp.c_str()) + "`");
             }
@@ -56,7 +53,7 @@ bool CHDChain::SetMnemonic(const SecureString& ssMnemonic, const SecureString& s
         }
 
         CMnemonic::ToSeed(ssMnemonicTmp, ssMnemonicPassphrase, vchSeed);
-        //seed.Set(vchSeed.begin(), vchSeed.end());
+
         id = GetSeedHash();
     }
 

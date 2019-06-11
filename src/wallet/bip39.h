@@ -25,16 +25,22 @@
 #define RAVEN_BIP39_H
 
 #include "support/allocators/secure.h"
+#include "pubkey.h"
 
 class CMnemonic
 {
 public:
     static SecureString Generate(int strength);    // strength in bits
+    static SecureString GenerateFromEntropy(const SecureVector& entropy, const int strength);
+    static bool GenerateNewEntropy(int strength, SecureVector& data) ;
+
     static SecureString FromData(const SecureVector& data, int len);
     static bool Check(SecureString mnemonic);
+    static SecureVector MnemonicToEntropy(SecureVector mnemonic);
     static uint32_t WordsCount(SecureString mnemonic);
     // passphrase must be at most 256 characters or code may crash
     static void ToSeed(SecureString mnemonic, SecureString passphrase, SecureVector& seedRet);
+ //   static void ToSeed(SecureString mnemonic, SecureString passphrase, CPubKey& seedRet);
 };
 
 #endif

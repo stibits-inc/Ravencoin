@@ -28,6 +28,7 @@
 #include "bip39_english.h"
 #include "crypto/sha256.h"
 #include "random.h"
+#include "pubkey.h"
 
 #include <openssl/evp.h>
 
@@ -40,6 +41,22 @@ SecureString CMnemonic::Generate(int strength)
     GetStrongRandBytes(&data[0], 32);
     SecureString mnemonic = FromData(data, strength / 8);
     return mnemonic;
+}
+
+SecureString CMnemonic::GenerateFromEntropy(const SecureVector& entropy, const int strength)
+{
+    SecureString mnemonic = FromData(entropy, strength / 8);
+    return mnemonic;
+}
+
+bool CMnemonic::GenerateNewEntropy(int strength, SecureVector& data)
+{
+    if (strength % 32 || strength < 128 || strength > 256) {
+        return false;
+    }
+    data.resize(32);
+    GetStrongRandBytes(&data[0], 32);
+    return true;
 }
 
 // SecureString CMnemonic::FromData(const uint8_t *data, int len)
@@ -76,6 +93,78 @@ SecureString CMnemonic::FromData(const SecureVector& data, int len)
 
     return mnemonic;
 }
+
+SecureVector CMnemonic::MnemonicToEntropy(SecureVector mnemonic)
+{
+    if (mnemonic.empty()) {
+        return SecureVector();
+    }
+
+    uint32_t nWordCount{};
+
+    for (size_t i = 0; i < mnemonic.size(); ++i) {
+        if (mnemonic[i] == ' ') {
+            nWordCount++;
+        }
+    }
+    nWordCount++;
+    // check number of words
+    if (nWordCount != 12 && nWordCount != 18 && nWordCount != 24) {
+        return SecureVector();
+    }
+
+    SecureString ssCurrentWord;
+    SecureVector bits(32 + 1);
+
+    uint32_t nWordIndex, ki, nBitsCount{};
+
+    for (size_t i = 0; i < mnemonic.size(); ++i)
+    {
+        ssCurrentWord = "";
+        while (i + ssCurrentWord.size() < mnemonic.size() && mnemonic[i + ssCurrentWord.size()] != ' ') {
+            if (ssCurrentWord.size() >= 9) {
+                return SecureVector();
+            }
+            ssCurrentWord += mnemonic[i + ssCurrentWord.size()];
+        }
+        i += ssCurrentWord.size();
+        nWordIndex = 0;
+        for (;;) {
+            if (!wordlist[nWordIndex]) { // word not found
+                return SecureVector();
+            }
+            if (ssCurrentWord == wordlist[nWordIndex]) { // word found on index nWordIndex
+                for (ki = 0; ki < 11; ki++) {
+                    if (nWordIndex & (1 << (10 - ki))) {
+                        bits[nBitsCount / 8] |= 1 << (7 - (nBitsCount % 8));
+                    }
+                    nBitsCount++;
+                }
+                break;
+            }
+            nWordIndex++;
+        }
+    }
+    if (nBitsCount != nWordCount * 11) {
+        return SecureVector();
+    }
+    bits[32] = bits[nWordCount * 4 / 3];
+    CSHA256().Write(&bits[0], nWordCount * 4 / 3).Finalize(&bits[0]);
+
+    bool fResult = 0;
+    if (nWordCount == 12) {
+        fResult = (bits[0] & 0xF0) == (bits[32] & 0xF0); // compare first 4 bits
+    } else
+    if (nWordCount == 18) {
+        fResult = (bits[0] & 0xFC) == (bits[32] & 0xFC); // compare first 6 bits
+    } else
+    if (nWordCount == 24) {
+        fResult = bits[0] == bits[32]; // compare 8 bits
+    }
+
+    return bits;
+}
+
 
 bool CMnemonic::Check(SecureString mnemonic)
 {

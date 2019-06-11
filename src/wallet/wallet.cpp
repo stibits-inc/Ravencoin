@@ -33,11 +33,15 @@
 #include "utilmoneystr.h"
 #include "wallet/fees.h"
 
+#include "crypto/sha256.h"
+
 #include <assert.h>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/thread.hpp>
 #include <tinyformat.h>
+
+#include <openssl/evp.h>
 
 #include "assets/assets.h"
 
@@ -173,21 +177,24 @@ void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKey& secret, bool internal
 
     CHDChain hdChainTmp = GetHDChain();
 
-    // try to get the seed
- //   if (!GetKey(hdChainTmp.seed_id, hdChainTmp.seed))
- //       throw std::runtime_error(std::string(__func__) + ": seed not found");
-
-
-
     // for now we use a fixed keypath scheme of m/0'/0'/k
-    //CKey seed;                     //seed (256bit)
-    CExtKey childKey;              //key at m/0'/0'/<n>'
+     CExtKey childKey;              //key at m/0'/0'/<n>'
 
- //   if (hdChainTmp.IsNull()) {
-  //      throw std::runtime_error(std::string(__func__) + ": GetHDChain failed");
- //   }
+    if(!hdChainTmp.seed_id.IsNull() && hdChainTmp.vchSeed.size() == 0)
+    {
+    	 CKey seed;                     //seed (256bit)
+
+		// try to get the seed
+		if (!GetKey(hdChainTmp.seed_id, seed))
+			throw std::runtime_error(std::string(__func__) + ": seed not found");
+
+		hdChainTmp.vchSeed = SecureVector(seed.begin(), seed.end());
+
+    }
+
 
     uint32_t& nChildIndex = internal ? hdChainTmp.nInternalChainCounter : hdChainTmp.nExternalChainCounter;
+
     do {
         hdChainTmp.DeriveChildExtKey(nAccountIndex, internal, nChildIndex, childKey);
         // increment childkey index
@@ -1460,8 +1467,30 @@ void CWallet::GenerateNewSeed()
 
     if(gArgs.IsArgSet("-hdseed") && IsHex(strSeed)) {
         std::vector<unsigned char> vchSeed = ParseHex(strSeed);
-        if (!newHdChain.SetSeed(SecureVector(vchSeed.begin(), vchSeed.end()), true))
-            throw std::runtime_error(std::string(__func__) + ": SetSeed failed");
+
+        CKey key;
+        key.Set(vchSeed.begin(), vchSeed.end(), false);
+
+        CPubKey seed = DeriveNewSeed(key);
+
+        int64_t nCreationTime = GetTime();
+        CKeyMetadata metadata(nCreationTime);
+        metadata.hdKeypath     = "s";
+        metadata.hd_seed_id = seed.GetID();
+
+        newHdChain.seed_id = seed.GetID();
+
+        {
+            LOCK(cs_wallet);
+
+            // mem store the metadata
+            mapKeyMetadata[metadata.hd_seed_id] = metadata;
+
+            // write the key&metadata to the database
+            if (!AddKeyPubKey(key, seed))
+                throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
+        }
+
     }
     else {
         if (gArgs.IsArgSet("-hdseed") && !IsHex(strSeed))
@@ -1475,17 +1504,44 @@ void CWallet::GenerateNewSeed()
         SecureVector vchMnemonic(strMnemonic.begin(), strMnemonic.end());
         SecureVector vchMnemonicPassphrase(strMnemonicPassphrase.begin(), strMnemonicPassphrase.end());
 
-        if (!newHdChain.SetMnemonic(vchMnemonic, vchMnemonicPassphrase, true))
-            throw std::runtime_error(std::string(__func__) + ": SetMnemonic failed");
+        if(strMnemonic.size() == 0)
+        {
+            int strength = newHdChain.IsBip44() ? 128 : 256;
+            SecureVector entropy;
+            CMnemonic::GenerateNewEntropy(strength, entropy);
+            SecureString mnemonic = CMnemonic::FromData(entropy, strength / 8);
 
+            SecureVector vchMnemonic(mnemonic.begin(), mnemonic.end());
 
+            if (!newHdChain.SetMnemonic(vchMnemonic, SecureVector(), true))
+                throw std::runtime_error(std::string(__func__) + ": SetMnemonic failed");
+
+            // generate a new CKey
+        }
+        else {
+            if (!newHdChain.SetMnemonic(vchMnemonic, vchMnemonicPassphrase, true))
+                throw std::runtime_error(std::string(__func__) + ": SetMnemonic failed");
+
+        }
     }
 
     newHdChain.Debug(__func__);
 
     if (!SetHDChain(newHdChain, false))
         throw std::runtime_error(std::string(__func__) + ": SetHDChain failed");
+}
 
+
+// passphrase must be at most 256 characters or code may crash
+void CWallet::MnemonicToSeed(SecureString mnemonic, SecureString passphrase, CPubKey& seedRet)
+{
+    SecureString ssSalt = SecureString("mnemonic") + passphrase;
+    SecureVector vchSalt(ssSalt.begin(), ssSalt.end());
+    SecureVector seed;
+
+    PKCS5_PBKDF2_HMAC(mnemonic.c_str(), mnemonic.size(), &vchSalt[0], vchSalt.size(), 2048, EVP_sha512(), 64, &seed[0]);
+
+    seedRet.Set(seed.begin(), seed.end());
 }
 
 CPubKey CWallet::DeriveNewSeed(const CKey& key)

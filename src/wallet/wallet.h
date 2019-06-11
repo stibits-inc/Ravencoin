@@ -1193,6 +1193,8 @@ public:
     
     /* Derives a new HD seed (will not be activated) */
     CPubKey DeriveNewSeed(const CKey& key);
+
+    void MnemonicToSeed(SecureString mnemonic, SecureString passphrase, CPubKey& seedRet);
 };
 
 /** A key allocated from the key pool. */

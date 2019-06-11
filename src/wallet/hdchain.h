@@ -12,6 +12,7 @@
 #include "wallet/bip39.h"
 #include "key.h"
 
+class CWallet;
 
 /* simple HD chain data model */
 class CHDChain
@@ -19,6 +20,8 @@ class CHDChain
 public:
     uint32_t nExternalChainCounter;
     uint32_t nInternalChainCounter;
+
+    CKeyID seed_id; //!< seed hash160
 
     uint256 id; // TODO
 
@@ -30,7 +33,8 @@ public:
 
     static const int VERSION_HD_BASE        = 1;
     static const int VERSION_HD_CHAIN_SPLIT = 2;
-    static const int CURRENT_VERSION        = VERSION_HD_CHAIN_SPLIT;
+    static const int VERSION_HD_BIP44_BIP39 = 3;
+    static const int CURRENT_VERSION        = VERSION_HD_BIP44_BIP39;
     int nVersion;
 
     CHDChain() { SetNull(); }
@@ -40,22 +44,34 @@ public:
     {
         READWRITE(this->nVersion);
         READWRITE(nExternalChainCounter);
-        READWRITE(nInternalChainCounter);
 
-        READWRITE(use_bip44);
+        if(VERSION_HD_BIP44_BIP39 > nVersion)
+        {
+        	use_bip44 = false;
+        	READWRITE(seed_id);
+        }
 
-        READWRITE(id);
-        READWRITE(vchSeed);
-        READWRITE(vchMnemonic);
-        READWRITE(vchMnemonicPassphrase);
+        if (this->nVersion >= VERSION_HD_CHAIN_SPLIT)
+            READWRITE(nInternalChainCounter);
+
+        if(VERSION_HD_BIP44_BIP39 == nVersion) {
+            READWRITE(use_bip44);
+            READWRITE(id);
+            READWRITE(vchSeed);
+            READWRITE(vchMnemonic);
+            READWRITE(vchMnemonicPassphrase);
+        }
     }
+
+
 
     CHDChain(const CHDChain& other) :
             nExternalChainCounter(other.nExternalChainCounter),
             nInternalChainCounter(other.nInternalChainCounter),
+            seed_id(other.seed_id),
             id(other.id),
             use_bip44(other.use_bip44),
-            vchSeed(other.vchSeed),
+			vchSeed(other.vchSeed),
             vchMnemonic(other.vchMnemonic),
             vchMnemonicPassphrase(other.vchMnemonicPassphrase),
             nVersion(other.nVersion)
@@ -66,6 +82,7 @@ public:
             nInternalChainCounter = other.nInternalChainCounter;
             id = other.id;
             use_bip44 = other.use_bip44;
+            seed_id = other.seed_id;
             vchSeed = other.vchSeed;
             vchMnemonic = other.vchMnemonic;
             vchMnemonicPassphrase = other.vchMnemonicPassphrase;
@@ -82,12 +99,13 @@ public:
         use_bip44 = true;
 
         id = uint256();
+        seed_id.SetNull();
         vchSeed.clear();
         vchMnemonic.clear();
         vchMnemonicPassphrase.clear();
     }
 
-    bool IsNull() const {return vchSeed.empty() || id == uint256();}
+    bool IsNull() const {return vchSeed.size() == 0 && seed_id.IsNull();}
 
     void UseBip44( bool b = true)    { use_bip44 = b;}
     bool IsBip44()       const       { return use_bip44 == true;}
