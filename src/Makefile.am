@@ -170,6 +170,8 @@ RAVEN_CORE_H = \
   validationinterface.h \
   versionbits.h \
   wallet/coincontrol.h \
+  wallet/bip39.h \
+  wallet/bip39_english.h \
   wallet/crypter.h \
   wallet/db.h \
   wallet/feebumper.h \
@@ -255,6 +257,7 @@ endif
 libraven_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(RAVEN_INCLUDES)
 libraven_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libraven_wallet_a_SOURCES = \
+  wallet/bip39.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/feebumper.cpp \
