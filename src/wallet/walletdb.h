@@ -122,8 +122,8 @@ public:
     bool IsNull() { return seed_id.IsNull();}
 
 
-    void UseBip44( bool b = true)   { bUse_bip44 = b;}
-    bool IsBip44() const            { return bUse_bip44 == true;}
+    void UseBip44( bool b = true)  { bUse_bip44 = b;}
+    bool IsBip44() const           { return bUse_bip44 == true;}
 
 
     bool SetMnemonic(const SecureString& ssMnemonic, const SecureString& ssMnemonicPassphrase, SecureVector& vchSeed)
