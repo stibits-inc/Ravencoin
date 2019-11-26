@@ -5,7 +5,7 @@
 #include "assets/assets.h"
 #include "assets/assetdb.h"
 #include "assets/messages.h"
-#include "assets/messagedb.h"
+#include "assets/myassetsdb.h"
 #include <map>
 #include "tinyformat.h"
 
@@ -35,11 +35,11 @@
 
 std::string MessageActivationWarning()
 {
-    return AreMessagingDeployed() ? "" : "\nTHIS COMMAND IS NOT YET ACTIVE!\nhttps://github.com/RavenProject/rips/blob/master/rip-0005.mediawiki\n";
+    return AreMessagesDeployed() ? "" : "\nTHIS COMMAND IS NOT YET ACTIVE!\nhttps://github.com/RavenProject/rips/blob/master/rip-0005.mediawiki\n";
 }
 
 UniValue viewallmessages(const JSONRPCRequest& request) {
-    if (request.fHelp || !AreMessagingDeployed() || request.params.size() != 0)
+    if (request.fHelp || !AreMessagesDeployed() || request.params.size() != 0)
         throw std::runtime_error(
                 "viewallmessages \n"
                 + MessageActivationWarning() +
@@ -209,7 +209,7 @@ UniValue subscribetochannel(const JSONRPCRequest& request) {
         throw JSONRPCError(
                 RPC_INVALID_PARAMETER, "Channel Name is not valid.");
     }
-    
+
     if (type != AssetType::OWNER && type != AssetType::MSGCHANNEL)
         throw JSONRPCError(
                 RPC_INVALID_PARAMETER, "Channel Name must be a owner asset, or a message channel asset e.g OWNER!, MSG_CHANNEL~123.");
@@ -221,7 +221,7 @@ UniValue subscribetochannel(const JSONRPCRequest& request) {
 
 
 UniValue unsubscribefromchannel(const JSONRPCRequest& request) {
-    if (request.fHelp || !AreMessagingDeployed() || request.params.size() != 1)
+    if (request.fHelp || !AreMessagesDeployed() || request.params.size() != 1)
         throw std::runtime_error(
                 "unsubscribefromchannel \n"
                 + MessageActivationWarning() +
@@ -255,7 +255,7 @@ UniValue unsubscribefromchannel(const JSONRPCRequest& request) {
     // if the given asset name is a root of sub asset, subscribe to that assets owner token
     if (type == AssetType::ROOT || type == AssetType::SUB) {
         channel_name += "!";
-        
+
         if (!IsAssetNameValid(channel_name, type))
         throw JSONRPCError(
                 RPC_INVALID_PARAMETER, "Channel Name is not valid.");
@@ -271,7 +271,7 @@ UniValue unsubscribefromchannel(const JSONRPCRequest& request) {
 }
 
 UniValue clearmessages(const JSONRPCRequest& request) {
-    if (request.fHelp || !AreMessagingDeployed() || request.params.size() != 0)
+    if (request.fHelp || !AreMessagesDeployed() || request.params.size() != 0)
         throw std::runtime_error(
                 "clearmessages \n"
                 + MessageActivationWarning() +
@@ -304,8 +304,9 @@ UniValue clearmessages(const JSONRPCRequest& request) {
     return "Erased " + std::to_string(count) + " Messages from the database and cache";
 }
 
+#ifdef ENABLE_WALLET
 UniValue sendmessage(const JSONRPCRequest& request) {
-    if (request.fHelp || !AreMessagingDeployed() || request.params.size() < 2 || request.params.size() > 3)
+    if (request.fHelp || !AreMessagesDeployed() || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
                 "sendmessage \"channel_name\" \"ipfs_hash\" (expire_time)\n"
                 + MessageActivationWarning() +
@@ -338,26 +339,23 @@ UniValue sendmessage(const JSONRPCRequest& request) {
     std::string asset_name = request.params[0].get_str();
     std::string ipfs_hash = request.params[1].get_str();
 
-    if (ipfs_hash.length() != 46)
-        throw JSONRPCError(RPC_INVALID_PARAMS, std::string("Invalid IPFS hash (must be 46 characters)"));
-    if (ipfs_hash.substr(0, 2) != "Qm")
-        throw JSONRPCError(RPC_INVALID_PARAMS, std::string("Invalid IPFS hash (doesn't start with 'Qm')"));
-
     int64_t expire_time = 0;
     if (request.params.size() > 2) {
         expire_time = request.params[2].get_int64();
     }
+
+    CheckIPFSTxidMessage(ipfs_hash, expire_time);
 
     AssetType type;
     std::string strNameError;
     if (!IsAssetNameValid(asset_name, type, strNameError))
         throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid asset_name: ") + strNameError);
 
-    if (type != AssetType::MSGCHANNEL && type != AssetType::OWNER && type != AssetType::ROOT && type != AssetType::SUB) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid asset_name: Only message channels, root, sub, and owner assets are allowed"));
+    if (type != AssetType::MSGCHANNEL && type != AssetType::OWNER && type != AssetType::ROOT && type != AssetType::SUB && type != AssetType::RESTRICTED) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid asset_name: Only message channels, root, sub, restricted, and owner assets are allowed"));
     }
 
-    if (type == AssetType::ROOT || type == AssetType::SUB)
+    if (type == AssetType::ROOT || type == AssetType::SUB || type == AssetType::RESTRICTED)
         asset_name += OWNER_TAG;
 
     std::pair<int, std::string> error;
@@ -397,6 +395,96 @@ UniValue sendmessage(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue viewmytaggedaddresses(const JSONRPCRequest& request) {
+    if (request.fHelp || !AreRestrictedAssetsDeployed() || request.params.size() != 0)
+        throw std::runtime_error(
+                "viewmytaggedaddresses \n"
+                + MessageActivationWarning() +
+                "\nView all addresses this wallet owns that have been tagged\n"
+
+                "\nResult:\n"
+                "{\n"
+                "\"Address:\"                        (string) The address that was tagged\n"
+                "\"Tag Name:\"                       (string) The asset name\n"
+                "\"[Assigned|Removed]:\"             (Date) The UTC datetime of the assignment or removal of the tag in the format (YY-mm-dd HH:MM:SS)\n"
+                "                                         (Only the most recent tagging/untagging event will be returned for each address)\n"
+                "}...\n"
+
+                "\nExamples:\n"
+                + HelpExampleCli("viewmytaggedaddresses", "")
+                + HelpExampleRpc("viewmytaggedaddresses", "")
+        );
+
+    std::vector<std::tuple<std::string, std::string, bool, uint32_t> > myTaggedAddresses;
+
+    if (!pmyrestricteddb)
+        throw JSONRPCError(RPC_DATABASE_ERROR, "My restricted database is not available");
+
+    pmyrestricteddb->LoadMyTaggedAddresses(myTaggedAddresses);
+    UniValue myTags(UniValue::VARR);
+
+    for (auto item : myTaggedAddresses) {
+        UniValue obj(UniValue::VOBJ);
+
+        obj.push_back(Pair("Address", std::get<0>(item)));
+        obj.push_back(Pair("Tag Name", std::get<1>(item)));
+        if (std::get<2>(item))
+            obj.push_back(Pair("Assigned", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", std::get<3>(item))));
+        else
+            obj.push_back(Pair("Removed", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", std::get<3>(item))));
+
+        myTags.push_back(obj);
+    }
+
+    return myTags;
+}
+
+UniValue viewmyrestrictedaddresses(const JSONRPCRequest& request) {
+    if (request.fHelp || !AreRestrictedAssetsDeployed() || request.params.size() != 0)
+        throw std::runtime_error(
+                "viewmyrestrictedaddresses \n"
+                + MessageActivationWarning() +
+                "\nView all addresses this wallet owns that have been restricted\n"
+
+                "\nResult:\n"
+                "{\n"
+                "\"Address:\"                        (string) The address that was restricted\n"
+                "\"Asset Name:\"                     (string) The asset that the restriction applies to\n"
+                "\"[Restricted|Derestricted]:\"      (Date) The UTC datetime of the restriction or derestriction in the format (YY-mm-dd HH:MM:SS))\n"
+                "                                         (Only the most recent restriction/derestriction event will be returned for each address)\n"
+                "}...\n"
+
+                "\nExamples:\n"
+                + HelpExampleCli("viewmyrestrictedaddresses", "")
+                + HelpExampleRpc("viewmyrestrictedaddresses", "")
+        );
+
+    std::vector<std::tuple<std::string, std::string, bool, uint32_t> > myRestrictedAddresses;
+
+    if (!pmyrestricteddb)
+        throw JSONRPCError(RPC_DATABASE_ERROR, "My restricted database is not available");
+
+    pmyrestricteddb->LoadMyRestrictedAddresses(myRestrictedAddresses);
+    UniValue myRestricted(UniValue::VARR);
+
+    for (auto item : myRestrictedAddresses) {
+        UniValue obj(UniValue::VOBJ);
+
+        obj.push_back(Pair("Address", std::get<0>(item)));
+        obj.push_back(Pair("Asset Name", std::get<1>(item)));
+        if (std::get<2>(item))
+            obj.push_back(Pair("Restricted", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", std::get<3>(item))));
+        else
+            obj.push_back(Pair("Derestricted", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", std::get<3>(item))));
+
+        myRestricted.push_back(obj);
+    }
+
+    return myRestricted;
+}
+
+#endif
+
 static const CRPCCommand commands[] =
     {           //  category    name                          actor (function)             argNames
                 //  ----------- ------------------------      -----------------------      ----------
@@ -404,7 +492,11 @@ static const CRPCCommand commands[] =
             { "messages",       "viewallmessagechannels",     &viewallmessagechannels,     {}},
             { "messages",       "subscribetochannel",         &subscribetochannel,         {"channel_name"}},
             { "messages",       "unsubscribefromchannel",     &unsubscribefromchannel,     {"channel_name"}},
+#ifdef ENABLE_WALLET
             { "messages",       "sendmessage",                &sendmessage,                {"channel", "ipfs_hash", "expire_time"}},
+            {"restricted",        "viewmytaggedaddresses",      &viewmytaggedaddresses,       {}},
+            {"restricted",        "viewmyrestrictedaddresses",  &viewmyrestrictedaddresses,   {}},
+#endif
             { "messages",       "clearmessages",              &clearmessages,              {}},
     };
 

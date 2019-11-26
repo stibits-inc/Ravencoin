@@ -47,6 +47,7 @@
 #include "validationinterface.h"
 #include "assets/assets.h"
 #include "assets/assetdb.h"
+#include "assets/snapshotrequestdb.h"
 #ifdef ENABLE_WALLET
 #include "wallet/init.h"
 #include <wallet/wallet.h>
@@ -201,7 +202,7 @@ void PrepareShutdown()
 #ifdef ENABLE_WALLET
     FlushWallets();
 #endif
-    GenerateRavens(false, 0, Params());
+    GenerateRavens(false, 0, GetParams());
 
     MapPort(false);
 
@@ -250,29 +251,72 @@ void PrepareShutdown()
         }
         delete pcoinsTip;
         pcoinsTip = nullptr;
+
         delete pcoinscatcher;
         pcoinscatcher = nullptr;
+
         delete pcoinsdbview;
         pcoinsdbview = nullptr;
+
         delete pblocktree;
         pblocktree = nullptr;
+
+        /** RVN START */
         delete passets;
         passets = nullptr;
+
         delete passetsdb;
         passetsdb = nullptr;
+
         delete passetsCache;
         passetsCache = nullptr;
+
         delete pMessagesCache;
         pMessagesCache = nullptr;
+
         delete pMessageSubscribedChannelsCache;
         pMessageSubscribedChannelsCache = nullptr;
+
         delete pMessagesSeenAddressCache;
         pMessagesSeenAddressCache = nullptr;
-        pmessagechanneldb = nullptr;
-        delete pmessagedb;
-        pmessagedb = nullptr;
+
         delete pmessagechanneldb;
         pmessagechanneldb = nullptr;
+
+        delete pmessagedb;
+        pmessagedb = nullptr;
+
+        delete pmyrestricteddb;
+        pmyrestricteddb = nullptr;
+
+        delete passetsVerifierCache;
+        passetsVerifierCache = nullptr;
+
+        delete passetsQualifierCache;
+        passetsQualifierCache = nullptr;
+
+        delete passetsRestrictionCache;
+        passetsRestrictionCache = nullptr;
+
+        delete passetsGlobalRestrictionCache;
+        passetsGlobalRestrictionCache = nullptr;
+
+        delete prestricteddb;
+        prestricteddb = nullptr;
+
+        delete pmessagechanneldb;
+        pmessagechanneldb = nullptr;
+
+        delete pSnapshotRequestDb;
+        pSnapshotRequestDb = nullptr;
+
+        delete pAssetSnapshotDb;
+        pAssetSnapshotDb = nullptr;
+
+        delete pDistributeSnapshotDb;
+        pDistributeSnapshotDb = nullptr;
+
+        /** RVN END */
     }
 #ifdef ENABLE_WALLET
     StopWallets();
@@ -408,6 +452,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockreconstructionextratxn=<n>", strprintf(_("Extra transactions to keep in memory for compact block reconstructions (default: %u)"), DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN));
     strUsage += HelpMessageOpt("-par=<n>", strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"),
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
+    strUsage += HelpMessageOpt("-autofixmempool", strprintf(_("When set, if the CreateNewBlock fails because of a transaction. The mempool will be cleared. (default: %d)"), false));
 #ifndef WIN32
     strUsage += HelpMessageOpt("-pid=<file>", strprintf(_("Specify pid file (default: %s)"), RAVEN_PID_FILENAME));
 #endif
@@ -673,7 +718,7 @@ void CleanupBlockRevFiles()
 
 void ThreadImport(std::vector<fs::path> vImportFiles)
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = GetParams();
     RenameThread("raven-loadblk");
 
     {
@@ -943,7 +988,7 @@ bool AppInitBasicSetup()
 
 bool AppInitParameterInteraction()
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = GetParams();
     // ********************************************************* Step 2: parameter interactions
 
     // also see: InitParameterInteraction()
@@ -1263,7 +1308,7 @@ bool AppInitLockDataDirectory()
 
 bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = GetParams();
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
@@ -1333,7 +1378,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *g_connman;
 
-    peerLogic.reset(new PeerLogicValidation(&connman));
+    peerLogic.reset(new PeerLogicValidation(&connman, scheduler));
     RegisterValidationInterface(peerLogic.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -1479,44 +1524,89 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinsdbview;
                 delete pcoinscatcher;
                 delete pblocktree;
-
                 pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReset, dbMaxFileSize);
 
-                delete passets;
-                delete passetsdb;
-                delete passetsCache;
-                delete pmessagedb;
-                delete pmessagechanneldb;
-                passetsdb = new CAssetsDB(nBlockTreeDBCache, false, fReset);
-                passets = new CAssetsCache();
-                passetsCache = new CLRUCache<std::string, CDatabasedAssetData>(MAX_CACHE_ASSETS_SIZE);
-                pMessagesCache = new CLRUCache<std::string, CMessage>(1000);
-                pMessageSubscribedChannelsCache = new CLRUCache<std::string, int>(1000);
-                pMessagesSeenAddressCache = new CLRUCache<std::string, int>(1000);
-                pmessagedb = new CMessageDB(nBlockTreeDBCache, false, false);
-                pmessagechanneldb = new CMessageChannelDB(nBlockTreeDBCache, false, false);
+                /** RVN START */
+                {
+                    // Basic assets
+                    delete passets;
+                    delete passetsdb;
+                    delete passetsCache;
 
+                    // Messaging assets
+                    delete pmessagedb;
+                    delete pmessagechanneldb;
+                    delete pMessagesCache;
+                    delete pMessagesSeenAddressCache;
+                    delete pMessageSubscribedChannelsCache;
 
-                // Read for fAssetIndex to make sure that we only load asset address balances if it if true
-                pblocktree->ReadFlag("assetindex", fAssetIndex);
-                // Need to load assets before we verify the database
-                if (!passetsdb->LoadAssets()) {
-                    strLoadError = _("Failed to load Assets Database");
-                    break;
+                    // My restricted assets
+                    delete pmyrestricteddb;
+
+                    // Restricted assets
+                    delete prestricteddb;
+                    delete passetsVerifierCache;
+                    delete passetsQualifierCache;
+                    delete passetsRestrictionCache;
+                    delete passetsGlobalRestrictionCache;
+
+                    //  Rewards
+                    delete pSnapshotRequestDb;
+                    delete pAssetSnapshotDb;
+                    delete pDistributeSnapshotDb;
+
+                    // Basic assets
+                    passetsdb = new CAssetsDB(nBlockTreeDBCache, false, fReset);
+                    passets = new CAssetsCache();
+                    passetsCache = new CLRUCache<std::string, CDatabasedAssetData>(MAX_CACHE_ASSETS_SIZE);
+
+                    // Messaging assets
+                    pMessagesCache = new CLRUCache<std::string, CMessage>(1000);
+                    pMessageSubscribedChannelsCache = new CLRUCache<std::string, int>(1000);
+                    pMessagesSeenAddressCache = new CLRUCache<std::string, int>(1000);
+                    pmessagedb = new CMessageDB(nBlockTreeDBCache, false, false);
+                    pmessagechanneldb = new CMessageChannelDB(nBlockTreeDBCache, false, false);
+
+                    // My restricted assets
+                    pmyrestricteddb = new CMyRestrictedDB(nBlockTreeDBCache, false, false);
+
+                    // Restricted assets
+                    prestricteddb = new CRestrictedDB(nBlockTreeDBCache, false, fReset);
+                    passetsVerifierCache = new CLRUCache<std::string, CNullAssetTxVerifierString>(
+                            MAX_CACHE_ASSETS_SIZE);
+                    passetsQualifierCache = new CLRUCache<std::string, int8_t>(MAX_CACHE_ASSETS_SIZE);
+                    passetsRestrictionCache = new CLRUCache<std::string, int8_t>(MAX_CACHE_ASSETS_SIZE);
+                    passetsGlobalRestrictionCache = new CLRUCache<std::string, int8_t>(MAX_CACHE_ASSETS_SIZE);
+
+                    // Rewards
+                    pSnapshotRequestDb = new CSnapshotRequestDB(nBlockTreeDBCache, false, false);
+                    pAssetSnapshotDb = new CAssetSnapshotDB(nBlockTreeDBCache, false, false);
+                    pDistributeSnapshotDb = new CDistributeSnapshotRequestDB(nBlockTreeDBCache, false, false);
+
+                    // Read for fAssetIndex to make sure that we only load asset address balances if it if true
+                    pblocktree->ReadFlag("assetindex", fAssetIndex);
+                    // Need to load assets before we verify the database
+                    if (!passetsdb->LoadAssets()) {
+                        strLoadError = _("Failed to load Assets Database");
+                        break;
+                    }
+
+                    if (!passetsdb->ReadReissuedMempoolState())
+                        LogPrintf(
+                                "Database failed to load last Reissued Mempool State. Will have to start from empty state");
+
+                    LogPrintf("Loaded Assets from database without error\nCache of assets size: %d\n",
+                              passetsCache->Size());
+
+                    // Check for changed -disablemessaging state
+                    if (gArgs.GetArg("-disablemessaging", false)) {
+                        LogPrintf("Messaging is disabled\n");
+                        fMessaging = false;
+                    } else {
+                        LogPrintf("Messaging is enabled\n");
+                    }
                 }
-
-                if (!passetsdb->ReadReissuedMempoolState())
-                    LogPrintf("Database failed to load last Reissued Mempool State. Will have to start from empty state");
-
-                LogPrintf("Loaded Assets from database without error\nCache of assets size: %d\n", passetsCache->Size());
-
-                // Check for changed -disablemessaging state
-                if (gArgs.GetArg("-disablemessaging", false)) {
-                    LogPrintf("Messaging is disabled\n");
-                    fMessaging = false;
-                } else {
-                    LogPrintf("Messaging is enabled\n");
-                }
+                /** RVN END */
 
                 if (fReset) {
                     pblocktree->WriteReindexing(true);
@@ -1545,12 +1635,6 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 // Check for changed -txindex state
                 if (fTxIndex != gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -txindex");
-                    break;
-                }
-
-                // Check for changed -assetindex state
-                if (fAssetIndex != gArgs.GetBoolArg("-assetindex", DEFAULT_ASSETINDEX)) {
-                    strLoadError = _("You need to rebuild the database using -reindex to change -assetIndex");
                     break;
                 }
 
@@ -1845,7 +1929,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
 #ifdef ENABLE_WALLET
     StartWallets(scheduler);
-#endif
+
 
     // ********************************************************* Step 12: Init Msg Channel list
     if (!fReindex && fLoaded && fMessaging && pmessagechanneldb && !gArgs.GetBoolArg("-disablewallet", false)) {
@@ -1858,6 +1942,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
             pmessagechanneldb->WriteFlag("init", true);
         }
     }
+#endif
 
     // ********************************************************* Step 13: finished
     uiInterface.InitMessage(_("Done Loading"));

@@ -36,7 +36,10 @@
 #include <assets/assets.h>
 #include <assets/assetdb.h>
 #include <assets/messages.h>
-#include <assets/messagedb.h>
+#include <assets/myassetsdb.h>
+#include <assets/restricteddb.h>
+#include <assets/assetsnapshotdb.h>
+#include <assets/snapshotrequestdb.h>
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -53,6 +56,7 @@ struct ChainTxData;
 
 class CAssetsDB;
 class CAssets;
+class CSnapshotRequestDB;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
@@ -62,22 +66,21 @@ static const bool DEFAULT_WHITELISTRELAY = true;
 /** Default for -whitelistforcerelay. */
 static const bool DEFAULT_WHITELISTFORCERELAY = true;
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
-static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
-static const unsigned int DEFAULT_MIN_RELAY_TX_FEE_V2 = 1000000;
+static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000000;
 //! -maxtxfee default
 static const CAmount DEFAULT_TRANSACTION_MAXFEE = 1000 * COIN;
 //! Discourage users to set fees higher than this amount (in satoshis) per kB
-static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * COIN;
+static const CAmount HIGH_TX_FEE_PER_KB = 0.1 * COIN;
 //! -maxtxfee will warn if called with a higher fee than this amount (in satoshis)
 static const CAmount HIGH_MAX_TX_FEE = 100 * HIGH_TX_FEE_PER_KB;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */
 static const unsigned int DEFAULT_ANCESTOR_LIMIT = 200;
 /** Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors */
-static const unsigned int DEFAULT_ANCESTOR_SIZE_LIMIT = 202;
+static const unsigned int DEFAULT_ANCESTOR_SIZE_LIMIT = 250;
 /** Default for -limitdescendantcount, max number of in-mempool descendants */
 static const unsigned int DEFAULT_DESCENDANT_LIMIT = 200;
 /** Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants */
-static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 202;
+static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 250;
 /** Default for -mempoolexpiry, expiration time for mempool transactions in hours */
 static const unsigned int DEFAULT_MEMPOOL_EXPIRY = 336;
 /** Maximum kilobytes for transactions to store for processing during reorg */
@@ -149,6 +152,7 @@ static const bool DEFAULT_ASSETINDEX = false;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
+static const bool DEFAULT_REWARDS_ENABLED = false;
 /** Default for -dbmaxfilesize , in MB */
 static const int64_t DEFAULT_DB_MAX_FILE_SIZE = 2;
 
@@ -205,8 +209,8 @@ extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 /** Absolute maximum transaction fee (in satoshis) used by wallet and mempool (rejects high fee in sendrawtransaction) */
 extern CAmount maxTxFee;
-/** A fee rate smaller than this is considered zero fee (for relaying, mining and transaction creation) */
-extern CFeeRate minRelayTxFeeV2;
+
+extern bool fUnitTest;
 
 
 /** If the tip is older than this (in seconds), the node is considered to be in initial block download. */
@@ -278,8 +282,9 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
  * @param[out] state This may be set to an Error state if any error occurred processing them
  * @param[in]  chainparams The params for the chain we want to connect to
  * @param[out] ppindex If set, the pointer will be set to point to the last new block index object for the given headers
+ * @param[out] first_invalid First header that fails validation, if one exists
  */
-bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex=nullptr);
+bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex=nullptr, CBlockHeader *first_invalid=nullptr);
 
 /** Check whether enough disk space is available for an incoming block */
 bool CheckDiskSpace(uint64_t nAdditionalBytes = 0);
@@ -446,7 +451,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
 /** Functions for validating blocks and updating the block tree */
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool fCheckAssetDuplicate = true, bool fForceDuplicateCheck = true);
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main held) */
 bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
@@ -499,18 +504,57 @@ extern CCoinsViewCache *pcoinsTip;
 extern CBlockTreeDB *pblocktree;
 
 /** RVN START */
-/** Global variable that point to the active assets database (protexted by cs_main) */
+
+/** Global variable that point to the active assets database (protected by cs_main) */
 extern CAssetsDB *passetsdb;
-/** Global variable that point to the active assets (protexted by cs_main) */
+
+/** Global variable that point to the active assets (protected by cs_main) */
 extern CAssetsCache *passets;
-/** Global variable that point to the assets LRU Cache (protexted by cs_main) */
+
+/** Global variable that point to the assets metadata LRU Cache (protected by cs_main) */
 extern CLRUCache<std::string, CDatabasedAssetData> *passetsCache;
 
+/** Global variable that points to the subscribed channel LRU Cache (protected by cs_main) */
 extern CLRUCache<std::string, CMessage> *pMessagesCache;
+
+/** Global variable that points to the subscribed channel LRU Cache (protected by cs_main) */
 extern CLRUCache<std::string, int> *pMessageSubscribedChannelsCache;
+
+/** Global variable that points to the address seen LRU Cache (protected by cs_main) */
 extern CLRUCache<std::string, int> *pMessagesSeenAddressCache;
+
+/** Global variable that points to the messages database (protected by cs_main) */
 extern CMessageDB *pmessagedb;
+
+/** Global variable that points to the message channel database (protected by cs_main) */
 extern CMessageChannelDB *pmessagechanneldb;
+
+/** Global variable that points to my wallets restricted database (protected by cs_main) */
+extern CMyRestrictedDB *pmyrestricteddb;
+
+/** Global variable that points to the active restricted asset database (protected by cs_main) */
+extern CRestrictedDB *prestricteddb;
+
+/** Global variable that points to the asset verifier LRU Cache (protected by cs_main) */
+extern CLRUCache<std::string, CNullAssetTxVerifierString> *passetsVerifierCache;
+
+/** Global variable that points to the asset address qualifier LRU Cache (protected by cs_main) */
+extern CLRUCache<std::string, int8_t> *passetsQualifierCache; // hash(address,qualifier_name) ->int8_t
+
+/** Global variable that points to the asset address restriction LRU Cache (protected by cs_main) */
+extern CLRUCache<std::string, int8_t> *passetsRestrictionCache; // hash(address,qualifier_name) ->int8_t
+
+/** Global variable that points to the global asset restriction LRU Cache (protected by cs_main) */
+extern CLRUCache<std::string, int8_t> *passetsGlobalRestrictionCache;
+
+/** Global variable that point to the active Snapshot Request database (protected by cs_main) */
+extern CSnapshotRequestDB *pSnapshotRequestDb;
+
+/** Global variable that point to the active asset snapshot database (protected by cs_main) */
+extern CAssetSnapshotDB *pAssetSnapshotDb;
+
+extern CDistributeSnapshotRequestDB *pDistributeSnapshotDb;
+
 /** RVN END */
 
 /**
@@ -547,10 +591,15 @@ bool LoadMempool();
 /** RVN START */
 bool AreAssetsDeployed();
 
-bool AreMessagingDeployed();
+bool AreMessagesDeployed();
+
+bool AreRestrictedAssetsDeployed();
+
+bool IsRip5Active();
 
 bool IsDGWActive(unsigned int nBlockNumber);
 bool IsMessagingActive(unsigned int nBlockNumber);
+bool IsRestrictedActive(unsigned int nBlockNumber);
 
 CAssetsCache* GetCurrentAssetCache();
 /** RVN END */

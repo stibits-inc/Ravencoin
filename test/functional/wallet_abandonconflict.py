@@ -12,7 +12,7 @@
  no effect on transactions which are already conflicted or abandoned.
 """
 from test_framework.test_framework import RavenTestFramework
-from test_framework.util import *
+from test_framework.util import (sync_blocks, Decimal, sync_mempools, disconnect_nodes, assert_equal, connect_nodes)
 
 class AbandonConflictTest(RavenTestFramework):
     def set_test_params(self):
@@ -131,7 +131,7 @@ class AbandonConflictTest(RavenTestFramework):
         inputs =[]
         inputs.append({"txid":txA, "vout":nA})
         outputs = {}
-        outputs[self.nodes[1].getnewaddress()] = Decimal("9.9999")
+        outputs[self.nodes[1].getnewaddress()] = Decimal("9.998")
         tx = self.nodes[0].createrawtransaction(inputs, outputs)
         signed = self.nodes[0].signrawtransaction(tx)
         self.nodes[1].sendrawtransaction(signed["hex"])

@@ -31,10 +31,10 @@
 #endif
 
 #include <QDir>
-#include <QDesktopWidget>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMessageBox>
+#include <QScreen>
 #include <QScrollBar>
 #include <QSettings>
 #include <QSignalMapper>
@@ -440,7 +440,7 @@ RPCConsole::RPCConsole(const PlatformStyle *_platformStyle, QWidget *parent) :
     QSettings settings;
     if (!restoreGeometry(settings.value("RPCConsoleWindowGeometry").toByteArray())) {
         // Restore failed (perhaps missing setting), center the window
-        move(QApplication::desktop()->availableGeometry().center() - frameGeometry().center());
+        move(QGuiApplication::primaryScreen()->geometry().center() - frameGeometry().center());
     }
 
     ui->openDebugLogfileButton->setToolTip(ui->openDebugLogfileButton->toolTip().arg(tr(PACKAGE_NAME)));
@@ -546,6 +546,7 @@ bool RPCConsole::eventFilter(QObject* obj, QEvent *event)
 
 void RPCConsole::setClientModel(ClientModel *model)
 {
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     clientModel = model;
     ui->trafficGraph->setClientModel(model);
     if (model && clientModel->getPeerTableModel() && clientModel->getBanTableModel()) {
@@ -650,7 +651,7 @@ void RPCConsole::setClientModel(ClientModel *model)
         ui->clientUserAgent->setText(model->formatSubVersion());
         ui->dataDir->setText(model->dataDir());
         ui->startupTime->setText(model->formatClientStartupTime());
-        ui->networkName->setText(QString::fromStdString(Params().NetworkIDString()));
+        ui->networkName->setText(QString::fromStdString(GetParams().NetworkIDString()));
 
         //Setup autocomplete and attach it
         QStringList wordList;
@@ -723,6 +724,7 @@ void RPCConsole::setFontSize(int newSize)
     ui->messagesWidget->verticalScrollBar()->setValue(oldPosFactor * ui->messagesWidget->verticalScrollBar()->maximum());
 }
 
+#ifdef ENABLE_WALLET
 /** Restart wallet with "-rescan" */
 void RPCConsole::walletRescan()
 {
@@ -752,6 +754,7 @@ void RPCConsole::walletReindex()
 
   buildParameterlist(REINDEX);
 }
+#endif
 
 /** Build command-line parameter list for restart */
 void RPCConsole::buildParameterlist(QString arg)

@@ -7,13 +7,13 @@
 
 from decimal import Decimal
 from test_framework.test_framework import RavenTestFramework
-from test_framework.util import *
-from test_framework.mininode import CTransaction, COIN
+from test_framework.util import (hex_str_to_bytes, assert_array_result, sync_mempools, assert_equal, bytes_to_hex_str)
+from test_framework.mininode import (CTransaction, COIN)
 from io import BytesIO
 
 
 
-def txFromHex(hexstring):
+def from_hex(hexstring):
     tx = CTransaction()
     f = BytesIO(hex_str_to_bytes(hexstring))
     tx.deserialize(f)

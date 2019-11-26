@@ -55,7 +55,7 @@ BasicTestingSetup::~BasicTestingSetup()
 
 TestingSetup::TestingSetup(const std::string &chainName) : BasicTestingSetup(chainName)
 {
-    const CChainParams &chainparams = Params();
+    const CChainParams &chainparams = GetParams();
     // Ideally we'd move all the RPC tests to the functional testing framework
     // instead of unit tests, but for now we need these here.
     RegisterAllCoreRPCCommands(tableRPC);
@@ -91,7 +91,7 @@ TestingSetup::TestingSetup(const std::string &chainName) : BasicTestingSetup(cha
         threadGroup.create_thread(&ThreadScriptCheck);
     g_connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
     connman = g_connman.get();
-    peerLogic.reset(new PeerLogicValidation(connman));
+    peerLogic.reset(new PeerLogicValidation(connman, scheduler));
 }
 
 TestingSetup::~TestingSetup()
@@ -130,7 +130,7 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction> &txns, const CScript &scriptPubKey)
 {
-    const CChainParams &chainparams = Params();
+    const CChainParams &chainparams = GetParams();
     std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
     CBlock &block = pblocktemplate->block;
 

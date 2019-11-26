@@ -8,7 +8,7 @@
 #include <script/ismine.h>
 #include <base58.h>
 #include "messages.h"
-#include "messagedb.h"
+#include "myassetsdb.h"
 #include <primitives/block.h>
 
 
@@ -186,6 +186,7 @@ void OrphanMessage(const CMessage& message)
     mapDirtyMessagesAdd.erase(message.out);
 }
 
+#ifdef ENABLE_WALLET
 bool ScanForMessageChannels(std::string& strError)
 {
     LOCK2(cs_messaging, cs_main);
@@ -197,11 +198,11 @@ bool ScanForMessageChannels(std::string& strError)
         return false;
     }
 
-    CBlockIndex* blockIndex = chainActive[Params().GetAssetActivationHeight()];
+    CBlockIndex* blockIndex = chainActive[GetParams().GetAssetActivationHeight()];
 
     while (blockIndex) {
         CBlock block;
-        if (!ReadBlockFromDisk(block, blockIndex, Params().GetConsensus())) {
+        if (!ReadBlockFromDisk(block, blockIndex, GetParams().GetConsensus())) {
             strError = "Block not found on disk";
             return false;
         }
@@ -241,7 +242,7 @@ bool ScanForMessageChannels(std::string& strError)
                                 if (fOwner || type == AssetType::MSGCHANNEL) {
                                     AddChannel(assetData.assetName);
                                     AddAddressSeen(EncodeDestination(assetData.destination));
-                                } else if (type == AssetType::ROOT || type == AssetType::SUB) {
+                                } else if (type == AssetType::ROOT || type == AssetType::SUB || type == AssetType::RESTRICTED) {
                                     AddChannel(assetData.assetName + "!");
                                     AddAddressSeen(EncodeDestination(assetData.destination));
                                 }
@@ -263,6 +264,7 @@ bool ScanForMessageChannels(std::string& strError)
     LogPrintf("\n");
     return true;
 }
+#endif
 
 bool IsAddressSeen(const std::string &address)
 {

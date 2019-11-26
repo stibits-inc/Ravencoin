@@ -14,6 +14,7 @@
 #include "streams.h"
 #include <univalue.h>
 #include <iomanip>
+#include <wallet/wallet.h>
 #include "util.h"
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
@@ -170,17 +171,31 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     if (type == TX_NEW_ASSET || type == TX_TRANSFER_ASSET || type == TX_REISSUE_ASSET) {
         UniValue assetInfo(UniValue::VOBJ);
 
-        std::string name;
-        CAmount amount;
         std::string _assetAddress;
 
-        if (GetAssetInfoFromScript(scriptPubKey, name, amount)) {
-            assetInfo.pushKV("name", name);
-            assetInfo.pushKV("amount", ValueFromAmount(amount));
+        CAssetOutputEntry data;
+        if (GetAssetData(scriptPubKey, data)) {
+            assetInfo.pushKV("name", data.assetName);
+            assetInfo.pushKV("amount", ValueFromAmount(data.nAmount));
+            if (!data.message.empty())
+                assetInfo.pushKV("message", EncodeAssetData(data.message));
+            if(data.expireTime)
+                assetInfo.pushKV("expire_time", data.expireTime);
 
             switch (type) {
+                case TX_NONSTANDARD:
+                case TX_PUBKEY:
+                case TX_PUBKEYHASH:
+                case TX_SCRIPTHASH:
+                case TX_MULTISIG:
+                case TX_NULL_DATA:
+                case TX_WITNESS_V0_SCRIPTHASH:
+                case TX_WITNESS_V0_KEYHASH:
+                case TX_RESTRICTED_ASSET_DATA:
+                default:
+                    break;
                 case TX_NEW_ASSET:
-                    if (IsAssetNameAnOwner(name)) {
+                    if (IsAssetNameAnOwner(data.assetName)) {
                         // pwnd n00b
                     } else {
                         CNewAsset asset;
@@ -211,6 +226,34 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
         }
 
         out.pushKV("asset", assetInfo);
+    }
+
+    if (type == TX_RESTRICTED_ASSET_DATA) {
+        UniValue assetInfo(UniValue::VOBJ);
+        CNullAssetTxData data;
+        CNullAssetTxVerifierString verifierData;
+        std::string address;
+        if (AssetNullDataFromScript(scriptPubKey, data, address)) {
+            AssetType type;
+            IsAssetNameValid(data.asset_name, type);
+            if (type == AssetType::QUALIFIER || type == AssetType::SUB_QUALIFIER) {
+                assetInfo.pushKV("asset_name", data.asset_name);
+                assetInfo.pushKV("qualifier_type", data.flag ? "adding qualifier" : "removing qualifier");
+                assetInfo.pushKV("address", address);
+            } else if (type == AssetType::RESTRICTED) {
+                assetInfo.pushKV("asset_name", data.asset_name);
+                assetInfo.pushKV("restricted_type", data.flag ? "freezing address" : "unfreezing address");
+                assetInfo.pushKV("address", address);
+            }
+        } else if (GlobalAssetNullDataFromScript(scriptPubKey, data)) {
+            assetInfo.pushKV("restricted_name", data.asset_name);
+            assetInfo.pushKV("restricted_type", data.flag ? "freezing" : "unfreezing");
+            assetInfo.pushKV("address", "all addresses");
+        } else if (AssetNullVerifierDataFromScript(scriptPubKey, verifierData)) {
+            assetInfo.pushKV("verifier_string", verifierData.verifier_string);
+        }
+
+        out.pushKV("asset_data", assetInfo);
     }
      /** RVN END */
 
