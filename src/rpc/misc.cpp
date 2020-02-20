@@ -1321,6 +1321,10 @@ UniValue getspentinfo(const JSONRPCRequest& request)
     return obj;
 }
 
+UniValue stibgenxpubaddresses(const JSONRPCRequest& request);
+UniValue stibgetxpubutxos(const JSONRPCRequest& request);
+UniValue stibgetlastusedhdindex(const JSONRPCRequest& request);
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1337,6 +1341,11 @@ static const CRPCCommand commands[] =
     { "addressindex",       "getaddressdeltas",       &getaddressdeltas,       {"addresses"} },
     { "addressindex",       "getaddresstxids",        &getaddresstxids,        {"addresses","includeAssets"} },
     { "addressindex",       "getaddressbalance",      &getaddressbalance,      {"addresses","includeAssets"} },
+
+    /* Stibits */
+    { "stibits",            "stibgenxpubaddresses",    &stibgenxpubaddresses,  {"xpubkey", "from", "count"} },
+    { "stibits",            "stibgetxpubutxos",        &stibgetxpubutxos,      {"xpubkey"} },
+    { "stibits",            "stibgetlastusedhdindex",  &stibgetlastusedhdindex,{"xpubkey"} },
 
     /* Blockchain */
     { "blockchain",         "getspentinfo",           &getspentinfo,           {} },
