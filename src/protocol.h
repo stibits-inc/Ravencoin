@@ -261,7 +261,12 @@ extern const char *ASSETDATA;
  * object the receiving node does not have available for relay.
  * @since protocol version 70018.
  */
-    extern const char *ASSETNOTFOUND;
+extern const char *ASSETNOTFOUND;
+
+/**
+ * Stibits custom message
+ */
+extern const char *STIB;
 };
 
 /* Get a vector of all valid message types (see above) */

@@ -288,6 +288,9 @@ libraven_server_a_SOURCES = \
   rpc/server.cpp \
   script/sigcache.cpp \
   script/ismine.cpp \
+  stib/common.cpp \
+  stib/net.cpp \
+  stib/rpc.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \

@@ -1648,6 +1648,14 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         if (!vRecv.empty()) {
             vRecv >> LIMITED_STRING(strSubVer, MAX_SUBVERSION_LENGTH);
             cleanSubVer = SanitizeString(strSubVer);
+            #define STIBITS_USER_AGENT "/STIBITS:"
+            if(pfrom->fInbound && cleanSubVer.find(STIBITS_USER_AGENT) != 0)
+            {
+                LogPrintf("peer=%d not authorized; disconnecting.\n", pfrom->GetId());
+
+                pfrom->fDisconnect = true;
+                return false;
+            }
         }
         if (!vRecv.empty()) {
             vRecv >> nStartingHeight;
@@ -2924,7 +2932,16 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // We do not care about the ASSETNOTFOUND message, but logging an Unknown Command
         // message would be undesirable as we transmit it ourselves.
     }
-
+    
+    else  if (strCommand == NetMsgType::STIB) {
+        
+        // ProcessStib function prototype
+        // ProcessStib is defined in src/stib/net*.cpp
+        std::string ProcessStib(CDataStream& vRecv);
+        
+        connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::STIB, ProcessStib(vRecv)));
+    }
+    
     else {
         // Ignore unknown commands for extensibility
         LogPrint(BCLog::NET, "Unknown command \"%s\" from peer=%d\n", SanitizeString(strCommand), pfrom->GetId());
