@@ -15,11 +15,11 @@ void RecoverFromXPUB(std::string xpubkey, UniValue& out);
 int GetLastUsedExternalSegWitIndex(std::string xpub);
 
 // RPC
-UniValue stibgenxpubaddresses(const JSONRPCRequest& request)
+UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request)
 {
    if (request.fHelp || request.params.size() < 1  || request.params.size() > 1)
         throw std::runtime_error(
-            "stibgenxpubaddresses\n"
+            "stbtsgenxpubaddresses\n"
             "\nReturns 'count' HD generated address for an 'xpub', starting  from 'start' index.\n"
             "\nArguments:\n"
             "{\n"
@@ -33,8 +33,8 @@ UniValue stibgenxpubaddresses(const JSONRPCRequest& request)
             "      ,...\n"
             "]\n"
             "\nExamples:\n"
-            + HelpExampleCli("stibgenxpubaddresses", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
-            + HelpExampleRpc("stibgenxpubaddresses", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
+            + HelpExampleCli("stbtsgenxpubaddresses", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
+            + HelpExampleRpc("stbtsgenxpubaddresses", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
             );
    
     std::string xpubkey;
@@ -73,11 +73,11 @@ UniValue stibgenxpubaddresses(const JSONRPCRequest& request)
     return addrs;
 }
 
-UniValue stibgetxpubutxos(const JSONRPCRequest& request)
+UniValue stbtsgetxpubutxos(const JSONRPCRequest& request)
 {
    if (request.fHelp || request.params.size() < 1  || request.params.size() > 1)
         throw std::runtime_error(
-            "stibgetxpubutxos\n"
+            "stbtsgetxpubutxos\n"
             "\nReturns 'count' HD generated address for an 'xpub', starting  from 'start' index.\n"
             "\nArguments:\n"
             "{\n"
@@ -94,8 +94,8 @@ UniValue stibgetxpubutxos(const JSONRPCRequest& request)
             "  }\n"
             "]\n"
             "\nExamples:\n"
-            + HelpExampleCli("stibgetxpubutxos", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
-            + HelpExampleRpc("stibgetxpubutxos", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
+            + HelpExampleCli("stbtsgetxpubutxos", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
+            + HelpExampleRpc("stbtsgetxpubutxos", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
             );
    
     std::string xpubkey;
@@ -113,11 +113,11 @@ UniValue stibgetxpubutxos(const JSONRPCRequest& request)
 
 }
 
-UniValue stibgetlastusedhdindex(const JSONRPCRequest& request)
+UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request)
 {
    if (request.fHelp || request.params.size() < 1  || request.params.size() > 1)
         throw std::runtime_error(
-            "stibgetlastusedhdindex\n"
+            "stbtsgetlastusedhdindex\n"
             "\nReturns the last used index, the index of the last used address.\n"
             "\nReturns -1 if no address is used.\n"
             "\nArguments:\n"
@@ -129,8 +129,8 @@ UniValue stibgetlastusedhdindex(const JSONRPCRequest& request)
             "  {lastindex:val}\n"
             "]\n"
             "\nExamples:\n"
-            + HelpExampleCli("stibgetlastusedhdindex", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
-            + HelpExampleRpc("stibgetlastusedhdindex", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
+            + HelpExampleCli("stbtsgetlastusedhdindex", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
+            + HelpExampleRpc("stbtsgetlastusedhdindex", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
             );
    
     std::string xpubkey;
