@@ -1321,9 +1321,9 @@ UniValue getspentinfo(const JSONRPCRequest& request)
     return obj;
 }
 
-UniValue stibgenxpubaddresses(const JSONRPCRequest& request);
-UniValue stibgetxpubutxos(const JSONRPCRequest& request);
-UniValue stibgetlastusedhdindex(const JSONRPCRequest& request);
+UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request);
+UniValue stbtsgetxpubutxos(const JSONRPCRequest& request);
+UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -1343,9 +1343,9 @@ static const CRPCCommand commands[] =
     { "addressindex",       "getaddressbalance",      &getaddressbalance,      {"addresses","includeAssets"} },
 
     /* Stibits */
-    { "stibits",            "stibgenxpubaddresses",    &stibgenxpubaddresses,  {"xpubkey", "from", "count"} },
-    { "stibits",            "stibgetxpubutxos",        &stibgetxpubutxos,      {"xpubkey"} },
-    { "stibits",            "stibgetlastusedhdindex",  &stibgetlastusedhdindex,{"xpubkey"} },
+    { "stibits",            "stbtsgenxpubaddresses",    &stbtsgenxpubaddresses,  {"xpubkey", "from", "count"} },
+    { "stibits",            "stbtsgetxpubutxos",        &stbtsgetxpubutxos,      {"xpubkey"} },
+    { "stibits",            "stbtsgetlastusedhdindex",  &stbtsgetlastusedhdindex,{"xpubkey"} },
 
     /* Blockchain */
     { "blockchain",         "getspentinfo",           &getspentinfo,           {} },

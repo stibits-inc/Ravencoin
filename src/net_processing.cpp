@@ -2951,13 +2951,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // message would be undesirable as we transmit it ourselves.
     }
     
-    else  if (strCommand == NetMsgType::STIB) {
+    else  if (strCommand == NetMsgType::STBTS) {
         
-        // ProcessStib function prototype
-        // ProcessStib is defined in src/stib/net*.cpp
-        std::string ProcessStib(CDataStream& vRecv);
+        // ProcessStbts function prototype
+        // ProcessStbts is defined in src/stib/net*.cpp
+        std::string ProcessStbts(CDataStream& vRecv);
         
-        connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::STIB, ProcessStib(vRecv)));
+        connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::STBTS, ProcessStbts(vRecv)));
     }
     
     else {
