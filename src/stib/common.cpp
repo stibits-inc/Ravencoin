@@ -13,10 +13,10 @@ struct HD_XPub
 {
     HD_XPub(const std::string xpub) {SetXPub(xpub);}
     HD_XPub()   {}
-    
-    
+
+
     void                        SetXPub         (const std::string xpub_);
-    
+
     std::vector<std::string>    Derive          (uint32_t from, uint32_t count, bool internal = false);
     std::vector<std::string>    DeriveWitness   (uint32_t from, uint32_t count, bool internal = false);
 
@@ -74,7 +74,7 @@ static std::string GetAddress(CPubKey& key)
 static std::string GetBech32Address(CPubKey& key)
 {
     CKeyID id = key.GetID();
-    
+
     std::vector<unsigned char> data = {0};
     data.reserve(33);
     ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
@@ -85,10 +85,10 @@ static std::string GetBech32Address(CPubKey& key)
 std::vector<std::string> HD_XPub::Derive(uint32_t from, uint32_t count, bool internal)
 {
     std::vector<std::string> ret(count);
-    
+
     CExtPubKey chainKey;
     CExtPubKey childKey;
-    
+
     // derive M/change
     accountKey.Derive(chainKey, internal ? 1 : 0);
 
@@ -108,10 +108,10 @@ std::vector<std::string> HD_XPub::Derive(uint32_t from, uint32_t count, bool int
 std::vector<std::string> HD_XPub::DeriveWitness(uint32_t from, uint32_t count, bool internal)
 {
     std::vector<std::string> ret(count);
-    
+
     CExtPubKey chainKey;
     CExtPubKey childKey;
-    
+
     // derive M/change
     accountKey.Derive(chainKey, internal ? 1 : 0);
 
@@ -133,7 +133,7 @@ static UniValue& operator <<(UniValue& arr, const UniValue& a) {
     {
         arr.push_back(a[i]);
     }
-    
+
     return arr;
 }
 
@@ -142,7 +142,7 @@ static std::vector<std::string>& operator <<(std::vector<std::string>& arr, cons
     {
         arr.push_back(a[i].write());
     }
-    
+
     return arr;
 }
 
@@ -161,7 +161,7 @@ bool AddressToHashType(std::string addr_str, uint160& hashBytes, int& type)
     if (!address.GetIndexKey(hashBytes, type)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
-    
+
     return true;
 }
 
@@ -201,10 +201,10 @@ int GetLastUsedIndex(std::vector<std::pair<uint160, int>> &addresses)
             txOutputs.clear();
         }
 
-                
+
         index++;
     }
-    
+
     return r;
 }
 
@@ -236,6 +236,34 @@ std::vector<uint256>  GetAddressesTxs(std::vector<std::pair<uint160, int>> &addr
     return result;
 }
 
+
+int  GetFirstBlockHeightForAddresses(std::vector<std::pair<uint160, int>> &addresses)
+{
+
+    std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
+    int blockHeight = 0;
+
+    for (auto it = addresses.begin(); it != addresses.end(); it++) {
+
+        if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
+
+        }
+    }
+
+    for (auto it=addressIndex.begin(); it!=addressIndex.end(); it++) {
+        int height = it->first.blockHeight;
+        if(!blockHeight)
+            blockHeight = height;
+        else
+            if (blockHeight > height)
+                blockHeight = height;
+    }
+
+
+    return blockHeight;
+}
+
 bool IsAddressesHasTxs(std::vector<std::pair<uint160, int>> &addresses)
 {
 
@@ -247,17 +275,17 @@ bool IsAddressesHasTxs(std::vector<std::pair<uint160, int>> &addresses)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
 
         }
-        
+
         if(addressIndex.size() > 0) return true;
     }
-    
+
     return addressIndex.size() > 0;
 
 }
 
 bool GetAddressUnspent(uint160 addressHash, int type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
-                       
+
 UniValue GetAddressesUtxos(std::vector<std::pair<uint160, int>> &addresses)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -275,9 +303,9 @@ UniValue GetAddressesUtxos(std::vector<std::pair<uint160, int>> &addresses)
 
     for (auto it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++) {
         UniValue output(UniValue::VOBJ);
-        
+
         std::string address;
-        
+
         if (!HashTypeToAddress(it->first.hashBytes, it->first.type, address)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
         }
@@ -313,15 +341,15 @@ bool GetAddressesUtxos(std::vector<std::pair<uint160, int>> &addresses, CDataStr
     for (auto it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++) {
 
         std::string address;
-        
+
         if (!HashTypeToAddress(it->first.hashBytes, it->first.type, address)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
         }
         ss << address;
-                
+
         it->first.txhash.Serialize(ss);
         ser_writedata32(ss, it->first.index);
-        
+
         ss << it->second;
     }
 
@@ -340,7 +368,7 @@ int GetLastUsedExternalSegWitIndex(std::string xpub)
      {
          std::vector<std::string> addrs = hd.Derive(last, BLOCK_SIZE, false, true);
          std::vector<std::pair<uint160, int> > addresses;
-         
+
          for(auto a : addrs)
          {
              LogPrintf("%s\n", a.data());
@@ -350,16 +378,52 @@ int GetLastUsedExternalSegWitIndex(std::string xpub)
                 addresses.push_back(std::make_pair(hashBytes, type));
             }
          }
-         
+
          int r = GetLastUsedIndex(addresses);
-         
+
          if(r < 0) return ret+1;
          ret = last + r;
-         
+
          last += BLOCK_SIZE;
-         
+
      } while(true);
-     
+
+     return ret;
+}
+
+// return 0 when no block found
+// if found, return the blocknumber
+int GetFirstUsedBlock(std::string xpub)
+{
+     int ret = 0;
+     uint32_t last =  0;
+     HD_XPub hd(xpub);
+     if(!hd.IsValid()) return ret;
+     do
+     {
+         std::vector<std::string> addrs = hd.Derive(last, BLOCK_SIZE, false, true);
+         std::vector<std::pair<uint160, int> > addresses;
+
+         for(auto a : addrs)
+         {
+             LogPrintf("%s\n", a.data());
+            uint160 hashBytes;
+            int type = 0;
+            if (AddressToHashType(a, hashBytes, type)) {
+                addresses.push_back(std::make_pair(hashBytes, type));
+            }
+         }
+
+         int r = GetFirstBlockHeightForAddresses(addresses);
+
+         if(r == 0) return ret;
+
+         if(r < ret) ret = r;
+
+         last += BLOCK_SIZE;
+
+     } while(true);
+
      return ret;
 }
 
@@ -374,20 +438,20 @@ UniValue Recover_(HD_XPub& hd, bool internal, bool segwit)
      * while there is at least ( one utxo or one tx)
      *
      */
-     
+
      UniValue ret(UniValue::VARR);
-     
+
      uint32_t last =  0;
-    
+
      int not_found = 0;
-                 
+
      bool found = false;
 
      do
      {
          std::vector<std::string> addrs = hd.Derive(last, BLOCK_SIZE, internal, segwit);
          std::vector<std::pair<uint160, int> > addresses;
-         
+
          for(auto a : addrs)
          {
             uint160 hashBytes;
@@ -396,7 +460,7 @@ UniValue Recover_(HD_XPub& hd, bool internal, bool segwit)
                 addresses.push_back(std::make_pair(hashBytes, type));
             }
          }
-         
+
          UniValue utxos = GetAddressesUtxos(addresses);
 
          if(utxos.size() == 0)
@@ -410,14 +474,14 @@ UniValue Recover_(HD_XPub& hd, bool internal, bool segwit)
              found = true;
          }
 
-         
+
          last += BLOCK_SIZE;
-         
+
          not_found = found ? 0 : not_found + BLOCK_SIZE;
 
-         
+
      } while(not_found < 100);
-     
+
      return ret;
 }
 
@@ -437,7 +501,7 @@ uint32_t Recover_(HD_XPub& hd, bool internal, bool segwit, CDataStream& ss)
      uint32_t last =  0;
 
      int not_found = 0;
-     
+
      uint32_t count = 0;
 
      bool found = false;
@@ -471,7 +535,7 @@ uint32_t Recover_(HD_XPub& hd, bool internal, bool segwit, CDataStream& ss)
          not_found = found ? 0 : not_found + BLOCK_SIZE;
 
      } while(not_found < 100);
-     
+
      return count;
 }
 
@@ -533,9 +597,9 @@ std::vector<uint256> RecoverTxs_(HD_XPub& hd, bool internal, bool segwit)
 void GenerateFromXPUB(std::string xpubkey, int from, int count, UniValue& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     std::vector<std::string> v = xpub.Derive(from, count, false, false);
-    
+
     for(auto addr : v)
     {
         out.push_back(addr);
@@ -545,9 +609,9 @@ void GenerateFromXPUB(std::string xpubkey, int from, int count, UniValue& out)
 void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std::string>& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     std::vector<std::string> v = xpub.Derive(from, count, false, false);
-    
+
     for(auto addr : v)
     {
         out.push_back(addr);
@@ -557,16 +621,16 @@ void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std:
 void GenerateFromXPUB(std::string xpubkey, int from, int count, CDataStream& ss)
 {
     HD_XPub xpub(xpubkey);
-    
+
     std::vector<std::string> v = xpub.Derive(from, count, false, false);
-    
+
     ss << v;
 }
 
 void RecoverFromXPUB(std::string xpubkey, UniValue& out)
 {
     HD_XPub xpub(xpubkey);
-        
+
     out   // << Recover_(xpub, false, true)
           << Recover_(xpub, false, false)
           << Recover_(xpub, true, false)
@@ -577,7 +641,7 @@ void RecoverFromXPUB(std::string xpubkey, UniValue& out)
 void RecoverFromXPUB(std::string xpubkey, std::vector<std::string>& out)
 {
     HD_XPub xpub(xpubkey);
-        
+
     out   // << Recover_(xpub, false, true)
           << Recover_(xpub, false, false)
           << Recover_(xpub, true, false)
@@ -588,7 +652,7 @@ void RecoverFromXPUB(std::string xpubkey, std::vector<std::string>& out)
 uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& ss)
 {
     HD_XPub xpub(xpubkey);
-        
+
     uint32_t count =  // << Recover_(xpub, false, true)
             Recover_(xpub, false, false, ss)
           + Recover_(xpub, true, false, ss)

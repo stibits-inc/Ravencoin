@@ -1324,6 +1324,7 @@ UniValue getspentinfo(const JSONRPCRequest& request)
 UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request);
 UniValue stbtsgetxpubutxos(const JSONRPCRequest& request);
 UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request);
+UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -1346,6 +1347,7 @@ static const CRPCCommand commands[] =
     { "stibits",            "stbtsgenxpubaddresses",    &stbtsgenxpubaddresses,  {"xpubkey", "from", "count"} },
     { "stibits",            "stbtsgetxpubutxos",        &stbtsgetxpubutxos,      {"xpubkey"} },
     { "stibits",            "stbtsgetlastusedhdindex",  &stbtsgetlastusedhdindex,{"xpubkey"} },
+    { "stibits",            "stbtsgetfirstusedblock",   &stbtsgetfirstusedblock, {"xpubkey"} },
 
     /* Blockchain */
     { "blockchain",         "getspentinfo",           &getspentinfo,           {} },
