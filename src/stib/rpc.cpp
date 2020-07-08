@@ -222,16 +222,11 @@ UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request)
 
     }
 
-    if(xpubkey.size() == 0 || xpubkey[0] != 'x')
-    {
-        throw JSONRPCError(-1, "xpub is missing or invalid!!!");
-    }
-
     int r = GetFirstUsedBlock(xpubkey);
 
-    if(r == -1)
+    if(r == -2)
     {
-        throw JSONRPCError(-1, "xpub is missing or invalid!!!");
+        throw JSONRPCError(-2, "the xpub is invalid!!!");
 
     }
 

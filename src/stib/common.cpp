@@ -239,27 +239,23 @@ std::vector<uint256>  GetAddressesTxs(std::vector<std::pair<uint160, int>> &addr
 
 int  GetFirstBlockHeightForAddresses(std::vector<std::pair<uint160, int>> &addresses)
 {
-
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
-    int blockHeight = 0;
-
-    for (auto it = addresses.begin(); it != addresses.end(); it++) {
-
-        if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
+    
+    for (auto& a: addresses) {
+        if (!GetAddressIndex(a.first, a.second, addressIndex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
-
         }
     }
-
-    for (auto it=addressIndex.begin(); it!=addressIndex.end(); it++) {
-        int height = it->first.blockHeight;
-        if(!blockHeight)
+    
+    if (addressIndex.size() == 0 ) return -1;
+    
+    int blockHeight = addressIndex[0].first.blockHeight;
+    
+    for (auto& a: addressIndex) {
+        int height = a.first.blockHeight;
+		if (height < blockHeight)
             blockHeight = height;
-        else
-            if (blockHeight > height)
-                blockHeight = height;
     }
-
 
     return blockHeight;
 }
@@ -395,10 +391,10 @@ int GetLastUsedExternalSegWitIndex(std::string xpub)
 // if found, return the blocknumber
 int GetFirstUsedBlock(std::string xpub)
 {
-     int ret = 0;
+     int ret = -1;
      uint32_t last =  0;
      HD_XPub hd(xpub);
-     if(!hd.IsValid()) return ret;
+     if(!hd.IsValid()) return -2;
      do
      {
          std::vector<std::string> addrs = hd.Derive(last, BLOCK_SIZE, false, true);
@@ -416,9 +412,9 @@ int GetFirstUsedBlock(std::string xpub)
 
          int r = GetFirstBlockHeightForAddresses(addresses);
 
-         if(r == 0) return ret;
+         if(r == -1) return ret;
 
-         if(r < ret) ret = r;
+         if(ret == -1 || r < ret) ret = r;
 
          last += BLOCK_SIZE;
 
