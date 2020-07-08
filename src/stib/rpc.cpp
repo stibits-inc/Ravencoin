@@ -48,7 +48,6 @@ UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request)
             xpubkey = val.get_str();
         }
 
-
         val = find_value(request.params[0].get_obj(), "from");
         if (val.isNum()) {
             from = val.get_int();
@@ -58,7 +57,6 @@ UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request)
         if (val.isNum()) {
             count = val.get_int();
         }
-
     }
 
     std::vector<std::string> v;
@@ -155,7 +153,6 @@ UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request)
     if(xpubkey.size() == 0 || xpubkey[0] != 'x')
     {
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
-
     }
 
     if(xpubkey.size() == 0 || xpubkey[0] != 'x')
@@ -168,7 +165,6 @@ UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request)
     if(r == -1)
     {
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
-
     }
 
     UniValue obj(UniValue::VOBJ);
@@ -191,7 +187,7 @@ UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request)
             "}\n"
             "\nResult\n"
             "[\n"
-            "  {firsusedtblock:val}\n"
+            "  {firstusedblock:val}\n"
             "]\n"
             "\nExamples:\n"
             + HelpExampleCli("stbtsgetfirstusedblock", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
@@ -213,13 +209,12 @@ UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request)
     }
     else
     {
-        throw JSONRPCError(-1, "xpub is missing or invalid!!!");
+        throw JSONRPCError(-1, "xpub is missing!!!");
     }
 
     if(xpubkey.size() == 0 || xpubkey[0] != 'x')
     {
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
-
     }
 
     int r = GetFirstUsedBlock(xpubkey);
@@ -227,11 +222,10 @@ UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request)
     if(r == -2)
     {
         throw JSONRPCError(-2, "the xpub is invalid!!!");
-
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("firsusedtblock", r);
+    obj.pushKV("firstusedblock", r);
 
     return obj;
 }
