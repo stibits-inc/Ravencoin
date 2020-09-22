@@ -1323,6 +1323,7 @@ UniValue getspentinfo(const JSONRPCRequest& request)
 
 UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request);
 UniValue stbtsgetxpubutxos(const JSONRPCRequest& request);
+UniValue stbtsgetxpubtxs(const JSONRPCRequest& request);
 UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request);
 UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request);
 
@@ -1346,6 +1347,7 @@ static const CRPCCommand commands[] =
     /* Stibits */
     { "stibits",            "stbtsgenxpubaddresses",    &stbtsgenxpubaddresses,  {"xpubkey", "from", "count"} },
     { "stibits",            "stbtsgetxpubutxos",        &stbtsgetxpubutxos,      {"xpubkey"} },
+    { "stibits",            "stbtsgetxpubtxs",          &stbtsgetxpubtxs,        {"xpubkey"} },
     { "stibits",            "stbtsgetlastusedhdindex",  &stbtsgetlastusedhdindex,{"xpubkey"} },
     { "stibits",            "stbtsgetfirstusedblock",   &stbtsgetfirstusedblock, {"xpubkey"} },
 
