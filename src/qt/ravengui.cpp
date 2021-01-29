@@ -96,6 +96,9 @@ const std::string RavenGUI::DEFAULT_UIPLATFORM =
 #endif
         ;
 
+
+using namespace boost::placeholders;
+
 /** Display name for default wallet name. Uses tilde to avoid name
  * collisions in the future with additional wallets */
 const QString RavenGUI::DEFAULT_WALLET = "~Default";
