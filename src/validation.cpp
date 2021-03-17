@@ -78,6 +78,10 @@
  * Global state
  */
 
+using boost::placeholders::_1;
+using boost::placeholders::_2;
+using boost::placeholders::_3;
+
 
 CCriticalSection cs_main;
 
