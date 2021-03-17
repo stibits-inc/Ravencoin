@@ -260,12 +260,8 @@ UniValue stbtsgetlastusedhdindex(const JSONRPCRequest& request)
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
     }
 
-    if(xpubkey.size() == 0 || xpubkey[0] != 'x')
-    {
-        throw JSONRPCError(-1, "xpub is missing or invalid!!!");
-    }
-
-    if(xpubkey.size() == 0 || xpubkey[0] != 'x')
+    if(xpubkey.size() < 4
+       || xpubkey[1] != 'p' || xpubkey[2] != 'u' || xpubkey[3] != 'b')
     {
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
     }
@@ -322,7 +318,8 @@ UniValue stbtsgetfirstusedblock(const JSONRPCRequest& request)
         throw JSONRPCError(-1, "xpub is missing!!!");
     }
 
-    if(xpubkey.size() == 0 || xpubkey[0] != 'x')
+    if(xpubkey.size() < 4
+       || xpubkey[1] != 'p' || xpubkey[2] != 'u' || xpubkey[3] != 'b')
     {
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
     }
