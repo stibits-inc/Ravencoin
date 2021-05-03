@@ -35,6 +35,16 @@ private:
     CExtPubKey accountKey;
 };
 
+struct TransactionsCompare {
+    bool operator()(const std::pair<int, unsigned int> &lhs, const std::pair<int, unsigned int> &rhs) const {
+        bool b = false;
+
+        if(lhs.first < rhs.first) b = true;
+        if(lhs.first == rhs.first && lhs.second < rhs.second) b = true;
+
+        return b;
+    }
+};
 
 static bool DecodeBase58Check_(const char* psz, std::vector<unsigned char>& vchRet)
 {
@@ -207,7 +217,8 @@ int GetLastUsedIndex(std::vector<std::pair<uint160, int>> &addresses)
 
     return r;
 }
-bool GetAddressesTxs(std::vector<uint256>* txs, std::vector<std::pair<uint160, int>> &addresses) {
+
+bool GetAddressesTxs(std::map<const std::pair<int, unsigned int>, uint256, TransactionsCompare> *TxsMap, std::vector<std::pair<uint160, int>> &addresses) {
 
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
 
@@ -220,19 +231,9 @@ bool GetAddressesTxs(std::vector<uint256>* txs, std::vector<std::pair<uint160, i
     if(addressIndex.size() == 0)
         return false;
 
-    std::set<std::pair<int, uint256> > txids;
-    std::set<uint256> result;
 
     for (auto it = addressIndex.begin(); it != addressIndex.end(); it++) {
-        int height = it->first.blockHeight;
-        txids.insert(std::make_pair(height, it->first.txhash));
-    }
-
-    for (auto it = txids.begin(); it != txids.end(); it++) {
-        if (std::find(txs->begin(), txs->end(), it->second) == txs->end()) {
-            txs->push_back(it->second);
-            //LogPrintf("TxHash : %s\n", it->second.ToString());
-        }
+        TxsMap->insert({std::make_pair(it->first.blockHeight, it->first.txindex) , it->first.txhash});
     }
 
     return true;
@@ -549,7 +550,7 @@ uint32_t Recover_(HD_XPub& hd, bool internal, bool segwit, CDataStream& ss)
      return count;
 }
 
-void RecoverTxs_(std::vector<uint256>* txs, HD_XPub& hd, bool internal, bool segwit)
+void RecoverTxs_(std::map<const std::pair<int, unsigned int>, uint256, TransactionsCompare> *TxsMap, HD_XPub& hd, bool internal, bool segwit)
 {
     /*
         * repeat
@@ -577,7 +578,7 @@ void RecoverTxs_(std::vector<uint256>* txs, HD_XPub& hd, bool internal, bool seg
             }
          }
 
-         found = GetAddressesTxs(txs, addresses);
+         found = GetAddressesTxs(TxsMap, addresses);
 
          last += BLOCK_SIZE;
 
@@ -700,12 +701,16 @@ void RecoverTxsFromXPUB(std::string xpubkey, std::vector<uint256>& out)
         return;
     }
 
-    std::vector<uint256>txs;
+    std::map<const std::pair<int, unsigned int>, uint256, TransactionsCompare> TxsMap;
 
     //RecoverTxs_(xpub, true, true);//witness
     //RecoverTxs_(xpub, false, true);//witness
 
-    RecoverTxs_(&txs, xpub, false, false);
-    RecoverTxs_(&txs, xpub, true, false);
-    out << txs;
+    RecoverTxs_(&TxsMap, xpub, false, false);
+    RecoverTxs_(&TxsMap, xpub, true, false);
+
+    for(auto it = TxsMap.begin(); it != TxsMap.end(); ++it ) {
+        out.push_back( it->second );
+        //LogPrintf("Txsid : %d, %d, %s\n", it->first.first, it->first.second, it->second.ToString());
+    }
 }
