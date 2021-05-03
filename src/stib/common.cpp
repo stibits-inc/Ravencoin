@@ -207,50 +207,52 @@ int GetLastUsedIndex(std::vector<std::pair<uint160, int>> &addresses)
 
     return r;
 }
-
-std::vector<uint256>  GetAddressesTxs(std::vector<std::pair<uint160, int>> &addresses)
-{
+bool GetAddressesTxs(std::vector<uint256>* txs, std::vector<std::pair<uint160, int>> &addresses) {
 
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
 
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
-
         if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
 
         }
     }
+    if(addressIndex.size() == 0)
+        return false;
 
     std::set<std::pair<int, uint256> > txids;
-    std::vector<uint256> result;
+    std::set<uint256> result;
 
-    for (auto it=addressIndex.begin(); it!=addressIndex.end(); it++) {
+    for (auto it = addressIndex.begin(); it != addressIndex.end(); it++) {
         int height = it->first.blockHeight;
         txids.insert(std::make_pair(height, it->first.txhash));
     }
 
-    for (auto it=txids.begin(); it!=txids.end(); it++) {
-        result.push_back(it->second);
+    for (auto it = txids.begin(); it != txids.end(); it++) {
+        if (std::find(txs->begin(), txs->end(), it->second) == txs->end()) {
+            txs->push_back(it->second);
+            //LogPrintf("TxHash : %s\n", it->second.ToString());
+        }
     }
 
-    return result;
+    return true;
 }
 
 
 int  GetFirstBlockHeightForAddresses(std::vector<std::pair<uint160, int>> &addresses)
 {
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
-    
+
     for (auto& a: addresses) {
         if (!GetAddressIndex(a.first, a.second, addressIndex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
-    
+
     if (addressIndex.size() == 0 ) return -1;
-    
+
     int blockHeight = addressIndex[0].first.blockHeight;
-    
+
     for (auto& a: addressIndex) {
         int height = a.first.blockHeight;
 		if (height < blockHeight)
@@ -359,7 +361,7 @@ int GetLastUsedExternalSegWitIndex(std::string xpub)
      int ret = -1;
      uint32_t last =  0;
      HD_XPub hd(xpub);
-     
+
      if(!hd.IsValid())
      {
         LogPrintf("provided xpub is not valid !!!!!\n");
@@ -400,7 +402,7 @@ int GetFirstUsedBlock(std::string xpub)
      int ret = -1;
      uint32_t last =  0;
      HD_XPub hd(xpub);
-    
+
      if(!hd.IsValid())
      {
         LogPrintf("provided xpub is not valid !!!!!\n");
@@ -547,23 +549,19 @@ uint32_t Recover_(HD_XPub& hd, bool internal, bool segwit, CDataStream& ss)
      return count;
 }
 
-std::vector<uint256> RecoverTxs_(HD_XPub& hd, bool internal, bool segwit)
+void RecoverTxs_(std::vector<uint256>* txs, HD_XPub& hd, bool internal, bool segwit)
 {
     /*
-     * repeat
-     *    derive 100 next address
-     *    gget their txs
-     * while there is at least ( one tx)
-     *
-     */
+        * repeat
+        *    derive 100 next address
+        *    gget their txs
+        * while there is at least ( one tx)
+        *
+    */
+    uint32_t last =  0;
 
-     std::vector<uint256>  ret;
-
-     uint32_t last =  0;
-
-     int not_found = 0;
-
-     bool found = false;
+    int not_found = 0;
+    bool found = false;
 
      do
      {
@@ -579,33 +577,20 @@ std::vector<uint256> RecoverTxs_(HD_XPub& hd, bool internal, bool segwit)
             }
          }
 
-         std::vector<uint256>  txs = GetAddressesTxs(addresses);
-
-         if(txs.size() > 0)
-         {
-             ret << txs;
-             found = true;
-         }
-         else
-         {
-            found = false;
-         }
+         found = GetAddressesTxs(txs, addresses);
 
          last += BLOCK_SIZE;
 
          not_found = found ? 0 : not_found + BLOCK_SIZE;
 
-
      } while(not_found < 100);
-
-     return ret;
 }
 
 
 void GenerateFromXPUB(std::string xpubkey, int from, int count, UniValue& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
@@ -623,7 +608,7 @@ void GenerateFromXPUB(std::string xpubkey, int from, int count, UniValue& out)
 void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std::string>& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
@@ -640,13 +625,13 @@ void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std:
 void GenerateFromXPUB(std::string xpubkey, int from, int count, CDataStream& ss)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
         return;
     }
-    
+
     std::vector<std::string> v = xpub.Derive(from, count, false, false);
 
     ss << v;
@@ -655,7 +640,7 @@ void GenerateFromXPUB(std::string xpubkey, int from, int count, CDataStream& ss)
 void RecoverFromXPUB(std::string xpubkey, UniValue& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
@@ -672,13 +657,13 @@ void RecoverFromXPUB(std::string xpubkey, UniValue& out)
 void RecoverFromXPUB(std::string xpubkey, std::vector<std::string>& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
         return;
     }
-    
+
     out   // << Recover_(xpub, false, true)
           << Recover_(xpub, false, false)
           << Recover_(xpub, true, false)
@@ -689,13 +674,13 @@ void RecoverFromXPUB(std::string xpubkey, std::vector<std::string>& out)
 uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& ss)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
         return 0;
     }
-    
+
     uint32_t count =  // << Recover_(xpub, false, true)
             Recover_(xpub, false, false, ss)
           + Recover_(xpub, true, false, ss)
@@ -708,16 +693,21 @@ uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& ss)
 void RecoverTxsFromXPUB(std::string xpubkey, std::vector<uint256>& out)
 {
     HD_XPub xpub(xpubkey);
-    
+
     if(!xpub.IsValid())
     {
         LogPrintf("provided xpub is not valid !!!!!\n");
         return;
     }
-    
-    out   //<< RecoverTxs_(xpub, false, true)
-          << RecoverTxs_(xpub, false, false)
-          << RecoverTxs_(xpub, true, false)
-          //<< RecoverTxs_(xpub, true, true)
-          ;
+
+    std::vector<uint256>txs;
+
+    //RecoverTxs_(xpub, true, true);//witness
+    //RecoverTxs_(xpub, false, true);//witness
+
+    RecoverTxs_(&txs, xpub, false, false);
+    out << txs;
+    txs.clear();
+    RecoverTxs_(&txs, xpub, true, false);
+    out << txs;
 }
