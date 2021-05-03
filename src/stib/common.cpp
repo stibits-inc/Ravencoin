@@ -706,8 +706,6 @@ void RecoverTxsFromXPUB(std::string xpubkey, std::vector<uint256>& out)
     //RecoverTxs_(xpub, false, true);//witness
 
     RecoverTxs_(&txs, xpub, false, false);
-    out << txs;
-    txs.clear();
     RecoverTxs_(&txs, xpub, true, false);
     out << txs;
 }
