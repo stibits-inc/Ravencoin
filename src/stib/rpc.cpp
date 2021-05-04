@@ -14,9 +14,17 @@
 
 void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std::string>& out);
 void RecoverFromXPUB(std::string xpubkey, UniValue& out);
-void RecoverTxsFromXPUB(std::string xpubkey, std::vector<uint256>& out);
+void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);
 int GetLastUsedExternalSegWitIndex(std::string xpub);
 int GetFirstUsedBlock(std::string xpub);
+
+inline static void UInt32SetLE(void *b4, uint32_t u)
+{
+    static_cast<uint8_t*>(b4)[3] = ((u >> 24) & 0xff);
+    static_cast<uint8_t*>(b4)[2] = ((u >> 16) & 0xff);
+    static_cast<uint8_t*>(b4)[1] = ((u >> 8) & 0xff);
+    static_cast<uint8_t*>(b4)[0] = (u & 0xff );
+}
 
 // RPC
 UniValue stbtsgenxpubaddresses(const JSONRPCRequest& request)
@@ -190,7 +198,7 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
 
 	LogPrintf("xpub found.\n");
 
-    std::vector<uint256> out;
+    std::vector<std::tuple<uint256, unsigned int, unsigned int>> out;
     RecoverTxsFromXPUB(xpubkey, out);
 
     LogPrint(logFlag, "stbtsgetxpubtxs : %d transactions found.\n", out.size());
@@ -199,7 +207,7 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
     
     // txs.reserve(out.size());
 
-    for(auto txhash: out)
+    for(auto [txhash, blockHeight, timestamp]: out)
     {
         CTransactionRef tx;
         uint256 hash_block;
@@ -209,7 +217,15 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
 		    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
 		    ssTx << tx;
 
-		    std::string stx = EncodeBase58((const uint8_t*)ssTx.data(), (const uint8_t*)(ssTx.data() + ssTx.size()));
+		    uint8_t buf[8];
+            UInt32SetLE(&buf[0], timestamp);
+            UInt32SetLE(&buf[4], blockHeight);
+
+            std::vector<uint8_t>ser_data;
+            ser_data.assign(ssTx.begin(), ssTx.end());
+            ser_data.insert(ser_data.end(), buf, buf+8);
+
+            std::string stx = EncodeBase58((const uint8_t*)ser_data.data(), (const uint8_t*)(ser_data.data() + ser_data.size()));
             txs.push_back(stx);
         }
         else

@@ -6,7 +6,7 @@
 
 void GenerateFromXPUB(std::string xpubkey, int from, int count, CDataStream& ss);  // defined in src/stib/common.cpp
 uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& out); // defined in src/stib/common.cpp
-void RecoverTxsFromXPUB(std::string xpubkey, std::vector<uint256>& out);  // defined in src/stib/common.cpp
+void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);  // defined in src/stib/common.cpp
 
 std::string ProcessStbts(CDataStream& vRecv)
 {
@@ -79,7 +79,7 @@ std::string ProcessStbts(CDataStream& vRecv)
                 }
 
                 std::string req = vRecv.str();
-                std::vector<uint256> out;
+                std::vector<std::tuple<uint256, unsigned int, unsigned int>> out;
                 std::vector<std::string> outHex;
                 RecoverTxsFromXPUB(req, out);
 
@@ -89,7 +89,7 @@ std::string ProcessStbts(CDataStream& vRecv)
                 if(out.size())
                     LogPrint(logFlag, "STBTS Custom message : T, %d, Transactions found.\n", out.size());
 
-                for(auto txhash: out)
+                for(auto [txhash, blockHeight, timestamp]: out)
                 {
                     CTransactionRef tx;
                     uint256 hash_block;
