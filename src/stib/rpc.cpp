@@ -14,7 +14,7 @@
 
 void GenerateFromXPUB(std::string xpubkey, int from, int count, std::vector<std::string>& out);
 void RecoverFromXPUB(std::string xpubkey, UniValue& out);
-void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);
+void RecoverTxsFromXPUB(std::string xpubkey, unsigned int lastBlockHeight, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);
 int GetLastUsedExternalSegWitIndex(std::string xpub);
 int GetFirstUsedBlock(std::string xpub);
 
@@ -149,6 +149,7 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
              "\nArguments:\n"
              "{\n"
              "  \"xpubkey\",  account extended public key ExtPubKey\n"
+             "  \"lastblockheight\",  (unsigned int) Txs befor BlockHeight\n"
              "}\n"
              "\nResult\n"
              "[\n"
@@ -161,8 +162,8 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
              "  }\n"
              "]\n"
              "\nExamples:\n"
-             + HelpExampleCli("stbtsgetxpubtxs", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}'")
-             + HelpExampleRpc("stbtsgetxpubtxs", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\"}")
+             + HelpExampleCli("stbtsgetxpubtxs", "'{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\", \"lastblockheight\": 0}'")
+             + HelpExampleRpc("stbtsgetxpubtxs", "{\"xpubkey\": \"xpub6Bgu572Y3EWgEq8gkVxmznPkb8hWkgYR9E6KTZN3pyM3hhC7WvwgHNchSCrC19a7nZ3ddyjwB26rbePuyATc55snUwWKkszRnvVwfmBshdS\", \"lastblockheight\": 0}'")
              );
 
     extern bool fTxIndex;
@@ -196,10 +197,24 @@ UniValue stbtsgetxpubtxs(const JSONRPCRequest& request)
         throw JSONRPCError(-1, "xpub is missing or invalid!!!");
     }
 
+
 	LogPrintf("xpub found.\n");
 
     std::vector<std::tuple<uint256, unsigned int, unsigned int>> out;
-    RecoverTxsFromXPUB(xpubkey, out);
+    unsigned int lastBlockHeight = 0;
+
+    if (request.params[0].isObject()) {
+        UniValue val = find_value(request.params[0].get_obj(), "lastblockheight");
+        if (val.isNum()) {
+            lastBlockHeight = val.get_uint();
+        }
+    }
+    else
+    {
+        throw JSONRPCError(-1, "lastblockheight is missing!!");
+    }
+
+    RecoverTxsFromXPUB(xpubkey, lastBlockHeight, out);
 
     LogPrint(logFlag, "stbtsgetxpubtxs : %d transactions found.\n", out.size());
 

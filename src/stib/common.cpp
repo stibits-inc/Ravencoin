@@ -239,7 +239,6 @@ bool GetAddressesTxs(std::map<const std::tuple<int, unsigned int, unsigned int>,
         CBlockIndex* pblockindex = chainActive[it->first.blockHeight];
 
         TxsMap->insert({std::make_tuple(it->first.txindex, it->first.blockHeight, pblockindex->nTime) , it->first.txhash});
-        printf("MEHDIEG : %d\t%d\n", it->first.blockHeight, pblockindex->nTime);
     }
 
     return true;
@@ -697,7 +696,7 @@ uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& ss)
 }
 
 
-void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out)
+void RecoverTxsFromXPUB(std::string xpubkey, unsigned int lastBlockHeight, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out)
 {
     HD_XPub xpub(xpubkey);
 
@@ -717,8 +716,12 @@ void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, uns
 
 
     for(auto it = TxsMap.begin(); it != TxsMap.end(); ++it ) {
+
         auto [index, blockHeight, timestamp] = it->first;
-        out.push_back(std::make_tuple(it->second, blockHeight, timestamp));
-        //LogPrintf("Txsid : %d, %d, %s\n", blockHeight, timestamp, it->second.ToString());
+
+        if(blockHeight < lastBlockHeight) {
+            out.push_back(std::make_tuple(it->second, blockHeight, timestamp));
+            //LogPrintf("Txsid : %d, %d, %s\n", blockHeight, timestamp, it->second.ToString());
+        }
     }
 }

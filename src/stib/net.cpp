@@ -6,7 +6,7 @@
 
 void GenerateFromXPUB(std::string xpubkey, int from, int count, CDataStream& ss);  // defined in src/stib/common.cpp
 uint32_t RecoverFromXPUB(std::string xpubkey, CDataStream& out); // defined in src/stib/common.cpp
-void RecoverTxsFromXPUB(std::string xpubkey, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);  // defined in src/stib/common.cpp
+void RecoverTxsFromXPUB(std::string xpubkey, unsigned int lastBlockHeight, std::vector<std::tuple<uint256, unsigned int, unsigned int>>& out);  // defined in src/stib/common.cpp
 
 std::string ProcessStbts(CDataStream& vRecv)
 {
@@ -81,7 +81,7 @@ std::string ProcessStbts(CDataStream& vRecv)
                 std::string req = vRecv.str();
                 std::vector<std::tuple<uint256, unsigned int, unsigned int>> out;
                 std::vector<std::string> outHex;
-                RecoverTxsFromXPUB(req, out);
+                RecoverTxsFromXPUB(req, 0, out);//TODO : set second parameter (lastBlockHeight) to the correct value
 
                 CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
                 WriteCompactSize(ssTx, out.size());
